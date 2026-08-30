@@ -1,15 +1,8 @@
-const TOKEN_KEY = "access_token";
-const USER_KEY = "user";
+export function saveAuth(data) {
+  localStorage.setItem("access_token", data.access_token);
 
-export function setAuth(token, user = null) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  localStorage.setItem(TOKEN_KEY, token);
-
-  if (user) {
-    localStorage.setItem(USER_KEY, JSON.stringify(user));
+  if (data.user) {
+    localStorage.setItem("user", JSON.stringify(data.user));
   }
 }
 
@@ -18,7 +11,7 @@ export function getToken() {
     return null;
   }
 
-  return localStorage.getItem(TOKEN_KEY);
+  return localStorage.getItem("access_token");
 }
 
 export function getUser() {
@@ -26,40 +19,18 @@ export function getUser() {
     return null;
   }
 
-  const user = localStorage.getItem(USER_KEY);
+  const user = localStorage.getItem("user");
 
-  if (!user) {
-    return null;
-  }
+  return user ? JSON.parse(user) : null;
+}
 
-  try {
-    return JSON.parse(user);
-  } catch {
-    return null;
-  }
+export function logout() {
+  localStorage.removeItem("access_token");
+  localStorage.removeItem("user");
+
+  window.location.href = "/login";
 }
 
 export function isAuthenticated() {
   return !!getToken();
-}
-
-export function logout() {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
-}
-
-export function getAuthHeader() {
-  const token = getToken();
-
-  if (!token) {
-    return {};
-  }
-
-  return {
-    Authorization: `Bearer ${token}`,
-  };
 }

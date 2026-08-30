@@ -1,33 +1,34 @@
-"use client";
+import { useEffect, useState } from "react";
+import { getCameras } from "../services/cameraservice";
 
-import CameraCard from "./CameraCard";
+export default function CameraGrid() {
 
-export default function CameraGrid({
-  cameras = [],
-  onStatusChange,
-}) {
-  if (cameras.length === 0) {
-    return (
-      <div className="rounded-xl border border-dashed border-slate-700 bg-slate-900 p-10 text-center">
-        <p className="text-slate-400">
-          No cameras found.
-        </p>
+  const [cameras, setCameras] = useState([]);
 
-        <p className="mt-1 text-sm text-slate-500">
-          Add a camera to start monitoring.
-        </p>
-      </div>
-    );
-  }
+  useEffect(() => {
+
+    async function loadCameras() {
+
+      try {
+        const data = await getCameras();
+
+        setCameras(data);
+      } catch (error) {
+        console.error(error);
+      }
+
+    }
+
+    loadCameras();
+
+  }, []);
 
   return (
-    <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+    <div>
       {cameras.map((camera) => (
-        <CameraCard
-          key={camera.id}
-          camera={camera}
-          onStatusChange={onStatusChange}
-        />
+        <div key={camera.id}>
+          {camera.name}
+        </div>
       ))}
     </div>
   );

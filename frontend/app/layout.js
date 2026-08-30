@@ -12,17 +12,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "IBVAP | Intelligent Border Video Analytics Platform",
-  description:
-    "AI-powered intelligent border video analytics and surveillance platform",
+  title: "IBVAP | Border Intelligence Command",
+  description: "AI-powered border surveillance and video analytics platform",
 };
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" data-scroll-behavior="smooth">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable}`}
-      >
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${geistSans.variable} ${geistMono.variable}`}>
         {children}
       </body>
     </html>
