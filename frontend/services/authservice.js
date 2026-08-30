@@ -33,7 +33,6 @@ export async function registerUser(
     }),
   });
 
-  saveAuth(data);
   return data;
 }
 
