@@ -34,6 +34,10 @@ export async function registerUser(
   });
 
   saveAuth(data);
-
   return data;
 }
+
+export async function getCurrentUser() {
+  return await apiRequest("/users/me");
+}
+

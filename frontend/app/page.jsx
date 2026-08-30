@@ -2,23 +2,31 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { Shield } from "lucide-react";
 import { isAuthenticated } from "../lib/auth";
 
 export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace(isAuthenticated() ? "/dashboard" : "/login");
+    if (isAuthenticated()) {
+      router.replace("/dashboard");
+    } else {
+      router.replace("/login");
+    }
   }, [router]);
 
   return (
-    <main className="ibvap-shell flex items-center justify-center">
-      <div className="glass-panel grid-surface rounded-3xl border px-8 py-10 text-center shadow-2xl">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-400 to-cyan-500 text-xl font-bold text-slate-900">
-          I
+    <main className="ibvap-shell flex min-h-screen items-center justify-center p-4">
+      <div className="glass-panel flex flex-col items-center justify-center rounded-3xl p-10 text-center max-w-sm w-full">
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-tr from-teal-500 to-cyan-400 font-black text-slate-950 shadow-xl shadow-teal-500/20">
+          <Shield className="h-8 w-8 text-slate-950" />
         </div>
-        <p className="text-sm uppercase tracking-[0.32em] text-teal-300">Launching IBVAP</p>
-        <h1 className="mt-3 text-3xl font-black text-white">Secure Border Intelligence</h1>
+        <p className="mt-4 text-xs font-bold uppercase tracking-[0.3em] text-teal-400">
+          IBVAP Intelligence
+        </p>
+        <h1 className="mt-2 text-xl font-black text-white">Border Command System</h1>
+        <p className="mt-1 text-xs text-slate-400">Routing to operational portal...</p>
       </div>
     </main>
   );

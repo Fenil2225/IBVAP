@@ -20,13 +20,31 @@ app = FastAPI(
 )
 
 
+import os
+from fastapi.staticfiles import StaticFiles
+
+# Create uploads directory if not exists
+os.makedirs("uploads", exist_ok=True)
+os.makedirs("uploads/anpr", exist_ok=True)
+os.makedirs("uploads/videos", exist_ok=True)
+
+# Mount static uploads
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
+
 # =========================
 # CORS
 # =========================
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5000",
+        "http://127.0.0.1:5000",
+        "*"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

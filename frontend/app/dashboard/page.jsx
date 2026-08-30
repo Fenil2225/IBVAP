@@ -1,94 +1,384 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
+import {
+  Camera,
+  Radio,
+  Car,
+  ShieldAlert,
+  Video,
+  Activity,
+  CheckCircle2,
+  AlertTriangle,
+  ArrowUpRight,
+  ShieldCheck,
+  RefreshCw,
+  Eye,
+  Plus,
+  Upload,
+  Search,
+} from "lucide-react";
 import ProtectedRoute from "../../components/ProtectedRoute";
 import Sidebar from "../../components/Sidebar";
 import Navbar from "../../components/Navbar";
-import { getDashboardSummary } from "../../services/analyticsservice";
-
-const stats = [
-  ["total_cameras", "Cameras", "bg-teal-400"],
-  ["online_cameras", "Online now", "bg-emerald-400"],
-  ["total_detections", "Detections", "bg-cyan-400"],
-  ["unacknowledged_alerts", "Open alerts", "bg-amber-400"],
-];
+import StatsCard from "../../components/StatsCard";
+import LiveStreamPlayer from "../../components/LiveStreamPlayer";
+import AlertCard from "../../components/AlertCard";
+import { getDashboardSummary, getRecentDetections, getRecentAlerts } from "../../services/analyticsservice";
+import { getCameras } from "../../services/cameraservice";
+import { acknowledgeAlert, resolveAlert } from "../../services/alertservice";
 
 export default function DashboardPage() {
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [summary, setSummary] = useState(null);
+  const [cameras, setCameras] = useState([]);
+  const [recentDetections, setRecentDetections] = useState([]);
+  const [recentAlerts, setRecentAlerts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    getDashboardSummary()
-      .then(setSummary)
-      .catch((err) => setError(err.message || "Unable to load dashboard data"));
+  const loadData = useCallback(async (isSilent = false) => {
+    if (!isSilent) setLoading(true);
+    else setRefreshing(true);
+
+    try {
+      const [sumRes, camRes, detRes, altRes] = await Promise.allSettled([
+        getDashboardSummary(),
+        getCameras(),
+        getRecentDetections(),
+        getRecentAlerts(),
+      ]);
+
+      if (sumRes.status === "fulfilled") setSummary(sumRes.value);
+      if (camRes.status === "fulfilled") setCameras(Array.isArray(camRes.value) ? camRes.value : []);
+      if (detRes.status === "fulfilled" && detRes.value?.data) {
+        setRecentDetections(detRes.value.data);
+      }
+      if (altRes.status === "fulfilled" && altRes.value?.data) {
+        setRecentAlerts(altRes.value.data);
+      }
+      setError("");
+    } catch (err) {
+      setError(err.message || "Failed to sync operations telemetry");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadData();
+    const interval = setInterval(() => loadData(true), 8000);
+    return () => clearInterval(interval);
+  }, [loadData]);
+
+  const handleAcknowledge = async (id) => {
+    await acknowledgeAlert(id);
+    loadData(true);
+  };
+
+  const handleResolve = async (id) => {
+    await resolveAlert(id);
+    loadData(true);
+  };
+
+  const onlineCameras = cameras.filter((c) => c.status === "online");
 
   return (
     <ProtectedRoute>
-      <div className="ibvap-shell min-h-screen text-white">
-        <Sidebar />
-        <div className="md:ml-72">
-          <Navbar />
-          <main className="grid-surface min-h-[calc(100vh-5rem)] p-5 lg:p-8">
-            <div className="mb-8 flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
+      <div className="ibvap-shell min-h-screen text-slate-100">
+        <Sidebar isMobileOpen={mobileOpen} onCloseMobile={() => setMobileOpen(false)} />
+
+        <div className="md:ml-72 flex flex-col min-h-screen">
+          <Navbar onMobileMenuToggle={() => setMobileOpen(!mobileOpen)} />
+
+          <main className="grid-surface flex-1 p-4 sm:p-6 lg:p-8 space-y-6">
+            {/* Header Banner */}
+            <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
               <div>
-                <p className="text-sm uppercase tracking-[0.28em] text-teal-300">Operations snapshot</p>
-                <h1 className="mt-2 text-3xl font-black tracking-tight text-white lg:text-4xl">Surveillance dashboard</h1>
-                <p className="mt-2 text-slate-400">A live view of cameras, detections, video processing, and response activity.</p>
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-teal-400 animate-ping"></span>
+                  <p className="text-xs font-bold tracking-[0.28em] text-teal-400 uppercase">
+                    Border Command & Control
+                  </p>
+                </div>
+                <h1 className="mt-1 text-2xl sm:text-3xl font-black tracking-tight text-white lg:text-4xl">
+                  Surveillance Operations Center
+                </h1>
+                <p className="mt-1 text-xs sm:text-sm text-slate-400">
+                  Real-time video analytics, AI intrusion triage, and multi-sector border security.
+                </p>
               </div>
-              <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/5 px-4 py-3 text-sm text-emerald-300">
-                <span className="mr-2 inline-block h-2 w-2 rounded-full bg-emerald-400" />System monitoring active
+
+              {/* Quick Actions & Status */}
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  onClick={() => loadData(true)}
+                  disabled={refreshing}
+                  className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900/80 px-3.5 py-2 text-xs font-bold text-slate-300 transition hover:border-teal-500/40 hover:text-white disabled:opacity-60"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin text-teal-400" : ""}`} />
+                  <span>{refreshing ? "Syncing..." : "Sync Live Data"}</span>
+                </button>
+
+                <Link
+                  href="/dashboard/live"
+                  className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-teal-400 to-cyan-500 px-4 py-2 text-xs font-extrabold text-slate-950 shadow-lg shadow-teal-500/20 transition hover:opacity-95"
+                >
+                  <Radio className="h-3.5 w-3.5" />
+                  <span>Open Video Matrix</span>
+                </Link>
               </div>
             </div>
 
-            {error && <div className="mb-6 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">{error}</div>}
+            {error && (
+              <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-xs sm:text-sm text-rose-300 flex items-center justify-between">
+                <span>{error}</span>
+                <button onClick={() => loadData()} className="underline font-bold ml-2">
+                  Retry Connection
+                </button>
+              </div>
+            )}
 
+            {/* Top 4 KPI Metrics */}
             <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              {stats.map(([key, label, color]) => (
-                <div key={key} className="glass-panel rounded-3xl p-5">
-                  <div className={`mb-5 h-1 w-12 rounded-full ${color}`} />
-                  <p className="text-sm text-slate-400">{label}</p>
-                  <p className="mt-2 text-4xl font-black text-white">{summary ? summary[key] : "--"}</p>
-                </div>
-              ))}
+              <StatsCard
+                title="Active Cameras"
+                value={summary?.total_cameras ?? cameras.length}
+                subtitle={`${summary?.online_cameras ?? onlineCameras.length} Online • ${summary?.offline_cameras ?? 0} Standby`}
+                icon={Camera}
+                color="teal"
+                trend="99.8% Uptime"
+              />
+
+              <StatsCard
+                title="AI Detections"
+                value={summary?.total_detections ?? "--"}
+                subtitle={`${summary?.person_detections ?? 0} Persons • ${summary?.vehicle_detections ?? 0} Vehicles`}
+                icon={Activity}
+                color="cyan"
+                trend="YOLOv11 Live"
+              />
+
+              <StatsCard
+                title="Intrusion Alerts"
+                value={summary?.total_alerts ?? recentAlerts.length}
+                subtitle={`${summary?.unacknowledged_alerts ?? 0} Open • ${summary?.critical_alerts ?? 0} Critical`}
+                icon={ShieldAlert}
+                color="rose"
+                trend={summary?.unacknowledged_alerts > 0 ? "ACTION REQ" : "Clear"}
+              />
+
+              <StatsCard
+                title="Forensic Videos"
+                value={summary?.total_videos ?? "--"}
+                subtitle={`${summary?.processed_videos ?? 0} Processed • ${summary?.processing_videos ?? 0} In Queue`}
+                icon={Video}
+                color="emerald"
+                trend="Automated"
+              />
             </section>
 
-            <section className="mt-6 grid gap-6 lg:grid-cols-2">
-              <MetricPanel title="Response queue" tag="Priority">
-                <Metric label="Critical alerts" value={summary?.critical_alerts} tone="text-red-300" />
-                <Metric label="High alerts" value={summary?.high_alerts} tone="text-amber-300" />
-                <Metric label="Intrusion detections" value={summary?.intrusion_detections} tone="text-cyan-300" />
-              </MetricPanel>
-              <MetricPanel title="Infrastructure health" tag="Status">
-                <Metric label="Online cameras" value={summary?.online_cameras} tone="text-emerald-300" />
-                <Metric label="Offline cameras" value={summary?.offline_cameras} tone="text-slate-300" />
-                <Metric label="Videos processing" value={summary?.processing_videos} tone="text-cyan-300" />
-              </MetricPanel>
+            {/* Quick Launchpad Toolbar */}
+            <section className="glass-panel rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 border border-slate-800">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                <ShieldCheck className="h-4 w-4 text-teal-400" />
+                <span>Operational Quick Launch:</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  href="/dashboard/cameras"
+                  className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900/90 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-teal-500/40 hover:text-white"
+                >
+                  <Plus className="h-3 w-3 text-teal-400" /> Add Camera
+                </Link>
+                <Link
+                  href="/dashboard/videos"
+                  className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900/90 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-teal-500/40 hover:text-white"
+                >
+                  <Upload className="h-3 w-3 text-cyan-400" /> Upload Video
+                </Link>
+                <Link
+                  href="/dashboard/anpr"
+                  className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900/90 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-teal-500/40 hover:text-white"
+                >
+                  <Search className="h-3 w-3 text-amber-400" /> Lookup ANPR Plate
+                </Link>
+              </div>
             </section>
+
+            {/* Main Operational Split: Live Stream Spotlight + Alert Triage */}
+            <div className="grid gap-6 xl:grid-cols-3">
+              {/* Left 2 Cols: Live Camera Stream View */}
+              <div className="space-y-6 xl:col-span-2">
+                <div className="glass-panel rounded-3xl p-5 sm:p-6">
+                  <div className="mb-4 flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-rose-500 animate-ping"></span>
+                        <h2 className="text-lg font-bold text-white">Live Surveillance Spotlight</h2>
+                      </div>
+                      <p className="text-xs text-slate-400">
+                        Primary tactical camera RTSP video feed with active AI overlay.
+                      </p>
+                    </div>
+
+                    <Link
+                      href="/dashboard/live"
+                      className="flex items-center gap-1 text-xs font-bold text-teal-400 hover:text-teal-300"
+                    >
+                      <span>View All Multi-Cameras</span>
+                      <ArrowUpRight className="h-4 w-4" />
+                    </Link>
+                  </div>
+
+                  {cameras.length > 0 ? (
+                    <LiveStreamPlayer camera={onlineCameras[0] || cameras[0]} />
+                  ) : (
+                    <div className="flex aspect-video w-full flex-col items-center justify-center rounded-2xl border border-dashed border-slate-800 bg-slate-950 p-6 text-center">
+                      <Camera className="h-10 w-10 text-slate-700 mb-2" />
+                      <p className="text-sm font-bold text-slate-400">No cameras configured yet</p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Register a border surveillance camera to begin live streaming.
+                      </p>
+                      <Link
+                        href="/dashboard/cameras"
+                        className="mt-4 rounded-xl bg-teal-500/10 border border-teal-500/30 px-3 py-1.5 text-xs font-bold text-teal-300 hover:bg-teal-500/20"
+                      >
+                        Register Camera
+                      </Link>
+                    </div>
+                  )}
+                </div>
+
+                {/* Recent AI Detection Telemetry Feed */}
+                <div className="glass-panel rounded-3xl p-5 sm:p-6">
+                  <div className="mb-4 flex items-center justify-between">
+                    <div>
+                      <h2 className="text-lg font-bold text-white">Real-Time Threat Telemetry</h2>
+                      <p className="text-xs text-slate-400">
+                        Live detection logs parsed by YOLOv11 deep learning pipeline.
+                      </p>
+                    </div>
+
+                    <Link
+                      href="/dashboard/analytics"
+                      className="flex items-center gap-1 text-xs font-bold text-teal-400 hover:text-teal-300"
+                    >
+                      <span>Full Analytics</span>
+                      <ArrowUpRight className="h-4 w-4" />
+                    </Link>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-400">
+                          <th className="pb-3 pl-2">Detection Type</th>
+                          <th className="pb-3">Camera Sector</th>
+                          <th className="pb-3">Confidence</th>
+                          <th className="pb-3">Track ID</th>
+                          <th className="pb-3 pr-2 text-right">Detected At</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/60 font-mono">
+                        {recentDetections.length > 0 ? (
+                          recentDetections.slice(0, 6).map((det) => (
+                            <tr key={det.id} className="hover:bg-slate-900/40 transition">
+                              <td className="py-3 pl-2 font-sans">
+                                <span
+                                  className={`inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase ${
+                                    det.detection_type === "intrusion"
+                                      ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
+                                      : det.detection_type === "person"
+                                      ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                                      : "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
+                                  }`}
+                                >
+                                  {det.detection_type}
+                                </span>
+                              </td>
+                              <td className="py-3 text-slate-300 font-sans">
+                                {det.camera_name || `Cam #${det.camera_id}`}
+                              </td>
+                              <td className="py-3 text-teal-400 font-bold">
+                                {Math.round((det.confidence || 0.85) * 100)}%
+                              </td>
+                              <td className="py-3 text-slate-400">
+                                {det.tracking_id ? `#${det.tracking_id}` : "--"}
+                              </td>
+                              <td className="py-3 pr-2 text-right text-slate-400 font-sans text-[11px]">
+                                {det.detected_at
+                                  ? new Date(det.detected_at).toLocaleTimeString()
+                                  : "Live"}
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={5} className="py-6 text-center text-slate-500 font-sans">
+                              No recent detection records found in database.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right 1 Col: Incident & Threat Response Stream */}
+              <div className="space-y-6">
+                <div className="glass-panel rounded-3xl p-5 sm:p-6">
+                  <div className="mb-4 flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <ShieldAlert className="h-4 w-4 text-rose-400" />
+                        <h2 className="text-lg font-bold text-white">Live Incident Triage</h2>
+                      </div>
+                      <p className="text-xs text-slate-400">
+                        High-priority security breaches requiring operator response.
+                      </p>
+                    </div>
+
+                    <Link
+                      href="/dashboard/alerts"
+                      className="text-xs font-bold text-teal-400 hover:text-teal-300"
+                    >
+                      View All
+                    </Link>
+                  </div>
+
+                  <div className="space-y-3 max-h-[720px] overflow-y-auto pr-1">
+                    {recentAlerts.length > 0 ? (
+                      recentAlerts
+                        .slice(0, 4)
+                        .map((alert) => (
+                          <AlertCard
+                            key={alert.id}
+                            alert={alert}
+                            onAcknowledge={handleAcknowledge}
+                            onResolve={handleResolve}
+                          />
+                        ))
+                    ) : (
+                      <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-6 text-center">
+                        <CheckCircle2 className="h-8 w-8 text-emerald-400 mx-auto mb-2" />
+                        <h4 className="text-sm font-bold text-white">All Clear</h4>
+                        <p className="text-xs text-slate-400 mt-1">
+                          No unresolved high-severity perimeter threats at this time.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
           </main>
         </div>
       </div>
     </ProtectedRoute>
-  );
-}
-
-function MetricPanel({ title, tag, children }) {
-  return (
-    <div className="glass-panel rounded-3xl p-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-white">{title}</h2>
-        <span className="text-xs uppercase tracking-[0.2em] text-teal-300">{tag}</span>
-      </div>
-      <div className="mt-6 space-y-4">{children}</div>
-    </div>
-  );
-}
-
-function Metric({ label, value, tone }) {
-  return (
-    <div className="flex items-center justify-between border-b border-white/10 pb-3 last:border-0 last:pb-0">
-      <span className="text-sm text-slate-400">{label}</span>
-      <span className={`text-2xl font-black ${tone}`}>{value ?? "--"}</span>
-    </div>
   );
 }

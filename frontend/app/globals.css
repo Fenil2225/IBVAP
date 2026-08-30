@@ -5,15 +5,16 @@
   --bg-strong: #020c18;
   --panel: rgba(13, 26, 39, 0.82);
   --panel-strong: rgba(11, 19, 29, 0.96);
-  --line: rgba(148, 163, 184, 0.18);
+  --line: rgba(148, 163, 184, 0.14);
+  --line-highlight: rgba(94, 234, 212, 0.35);
   --text: #e5eefb;
   --muted: #94a3b8;
-  --primary: #5eead4;
-  --primary-strong: #2dd4bf;
+  --primary: #14b8a6;
+  --primary-glow: rgba(20, 184, 166, 0.25);
   --accent: #fbbf24;
-  --danger: #f87171;
-  --success: #34d399;
-  --shadow: 0 25px 60px rgba(8, 15, 30, 0.5);
+  --danger: #f43f5e;
+  --success: #10b981;
+  --shadow: 0 20px 50px rgba(2, 8, 20, 0.6);
 }
 
 * {
@@ -22,17 +23,20 @@
 
 html {
   scroll-behavior: smooth;
+  color-scheme: dark;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
   background:
-    radial-gradient(circle at top left, rgba(45, 212, 191, 0.18), transparent 25%),
-    radial-gradient(circle at bottom right, rgba(251, 191, 36, 0.12), transparent 22%),
+    radial-gradient(circle at 10% 10%, rgba(20, 184, 166, 0.12), transparent 30%),
+    radial-gradient(circle at 90% 90%, rgba(56, 189, 248, 0.08), transparent 35%),
+    radial-gradient(circle at 50% 50%, rgba(244, 63, 94, 0.04), transparent 40%),
     var(--bg);
   color: var(--text);
-  font-family: var(--font-geist-sans), Arial, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
 }
 
 button,
@@ -59,43 +63,131 @@ select {
 input:focus,
 textarea:focus,
 select:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(94, 234, 212, 0.12);
+  border-color: #2dd4bf;
+  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.18);
 }
 
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(2, 12, 24, 0.9);
+  background: rgba(2, 12, 24, 0.85);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(94, 234, 212, 0.4);
+  background: rgba(94, 234, 212, 0.3);
   border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(94, 234, 212, 0.65);
+  background: rgba(94, 234, 212, 0.6);
 }
 
+/* Glass Panels & Surfaces */
 .glass-panel {
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.85), rgba(8, 15, 28, 0.82));
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.75) 0%, rgba(7, 16, 30, 0.85) 100%);
   border: 1px solid var(--line);
   box-shadow: var(--shadow);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.glass-panel-interactive {
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.7) 0%, rgba(7, 16, 30, 0.8) 100%);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(14px);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-panel-interactive:hover {
+  border-color: rgba(94, 234, 212, 0.35);
+  box-shadow: 0 15px 35px rgba(20, 184, 166, 0.12), var(--shadow);
+  transform: translateY(-2px);
 }
 
 .ibvap-shell {
   min-height: 100vh;
-  background: linear-gradient(180deg, rgba(2, 12, 24, 0.95), rgba(8, 17, 31, 0.98));
+  background: linear-gradient(180deg, rgba(2, 10, 20, 0.96) 0%, rgba(5, 14, 28, 0.98) 100%);
 }
 
 .grid-surface {
   background-image:
-    linear-gradient(rgba(148, 163, 184, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(148, 163, 184, 0.06) 1px, transparent 1px);
-  background-size: 22px 22px;
+    linear-gradient(rgba(148, 163, 184, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.04) 1px, transparent 1px);
+  background-size: 24px 24px;
 }
+
+/* License Plate styling */
+.license-plate-badge {
+  display: inline-flex;
+  align-items: center;
+  background: #ffffff;
+  color: #111827;
+  font-family: var(--font-geist-mono), monospace;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 2px solid #374151;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.8);
+  position: relative;
+  text-transform: uppercase;
+}
+
+.license-plate-badge::before {
+  content: "IND";
+  display: inline-block;
+  background: #1d4ed8;
+  color: #ffffff;
+  font-size: 0.55rem;
+  font-weight: 900;
+  padding: 1px 3px;
+  border-radius: 2px;
+  margin-right: 6px;
+  letter-spacing: 0;
+}
+
+/* Radar & Pulse Animations */
+@keyframes radar-sweep {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.radar-sweep {
+  animation: radar-sweep 4s linear infinite;
+}
+
+@keyframes pulse-glow-red {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(244, 63, 94, 0);
+  }
+}
+
+.pulse-danger {
+  animation: pulse-glow-red 2s infinite;
+}
+
+@keyframes pulse-glow-teal {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(45, 212, 191, 0);
+  }
+}
+
+.pulse-teal {
+  animation: pulse-glow-teal 2s infinite;
+}
+

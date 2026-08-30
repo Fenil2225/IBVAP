@@ -1,17 +1,25 @@
 import { apiRequest } from "../lib/api";
 
-export function getDashboardSummary() {
-	return apiRequest("/api/dashboard/summary");
+export async function getDashboardSummary() {
+  return await apiRequest("/api/dashboard/summary");
 }
 
-export function getAnalyticsSummary() {
-	return apiRequest("/api/analytics/summary");
+export async function getAnalyticsSummary() {
+  return await apiRequest("/api/analytics/summary");
 }
 
-export function getRecentDetections() {
-	return apiRequest("/api/analytics/recent-detections");
+export async function getDetectionStatistics() {
+  return await apiRequest("/api/analytics/detections");
 }
 
-export function getRecentAlerts() {
-	return apiRequest("/api/analytics/recent-alerts");
+export async function getAlertStatistics() {
+  return await apiRequest("/api/analytics/alerts");
+}
+
+export async function getRecentDetections() {
+  return await apiRequest("/api/analytics/recent-detections");
+}
+
+export async function getRecentAlerts() {
+  return await apiRequest("/api/analytics/recent-alerts");
 }
