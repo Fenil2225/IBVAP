@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Camera, MapPin, Activity, ShieldCheck, ShieldAlert, Power, Radio, ExternalLink } from "lucide-react";
+import { Camera, MapPin, ShieldCheck, Power, Radio, Pencil } from "lucide-react";
 
-export default function CameraCard({ camera, onStatusChange }) {
+export default function CameraCard({ camera, onStatusChange, onEdit }) {
   const [isUpdating, setIsUpdating] = useState(false);
   const isOnline = camera.status === "online";
 
@@ -101,6 +101,15 @@ export default function CameraCard({ camera, onStatusChange }) {
 
       {/* Action Footer */}
       <div className="mt-5 flex items-center gap-2 pt-3 border-t border-slate-800/60">
+        {onEdit && (
+          <button
+            onClick={() => onEdit(camera)}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-700 bg-slate-900 text-slate-300 hover:border-teal-500/40 hover:text-teal-300"
+            title="Edit RTSP URL"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+        )}
         {onStatusChange && (
           <button
             onClick={handleToggleStatus}

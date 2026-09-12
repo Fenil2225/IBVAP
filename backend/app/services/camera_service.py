@@ -235,6 +235,47 @@ def update_camera_status(
             connection.close()
 
 
+def update_camera_rtsp_url(
+    camera_id: int,
+    rtsp_url: str | None
+):
+
+    connection = None
+    cursor = None
+
+    try:
+
+        connection = get_db_connection()
+        cursor = connection.cursor()
+
+        cursor.execute(
+            """
+            UPDATE cameras
+            SET
+                rtsp_url = %s,
+                status = 'offline',
+                last_seen = NULL
+            WHERE id = %s
+            """,
+            (rtsp_url, camera_id)
+        )
+
+        connection.commit()
+
+        if cursor.rowcount == 0:
+            return None
+
+        return get_camera_by_id(camera_id)
+
+    finally:
+
+        if cursor:
+            cursor.close()
+
+        if connection:
+            connection.close()
+
+
 # =========================================================
 # GET CAMERA STATUS
 # =========================================================

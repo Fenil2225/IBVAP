@@ -5,6 +5,7 @@ from app.routes.users import get_current_user, require_roles
 from app.schemas.camera import (
     CameraCreate,
     CameraResponse,
+    CameraRTSPUpdate,
     CameraStatusUpdate,
     CameraStatusResponse
 )
@@ -14,6 +15,7 @@ from app.services.camera_service import (
     get_all_cameras,
     get_camera_by_id,
     update_camera_status,
+    update_camera_rtsp_url,
     get_camera_status
 )
 
@@ -142,6 +144,38 @@ def change_camera_status(
 
     if camera is None:
 
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Camera not found"
+        )
+
+    return camera
+
+
+@router.patch(
+    "/{camera_id}/rtsp",
+    response_model=CameraResponse
+)
+def change_camera_rtsp_url(
+    camera_id: int,
+    camera_update: CameraRTSPUpdate,
+    current_user=Depends(require_roles("admin"))
+):
+
+    rtsp_url = camera_update.rtsp_url.strip() if camera_update.rtsp_url else None
+
+    if rtsp_url and not (
+        rtsp_url.lower().startswith("rtsp://")
+        or rtsp_url.isdigit()
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="RTSP URL must start with rtsp:// or be a local camera index"
+        )
+
+    camera = update_camera_rtsp_url(camera_id, rtsp_url)
+
+    if camera is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Camera not found"

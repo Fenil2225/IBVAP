@@ -17,7 +17,7 @@ import ProtectedRoute from "../../../components/ProtectedRoute";
 import Sidebar from "../../../components/Sidebar";
 import Navbar from "../../../components/Navbar";
 import CameraCard from "../../../components/CameraCard";
-import { getCameras, createCamera, updateCameraStatus } from "../../../services/cameraservice";
+import { getCameras, createCamera, updateCameraStatus, updateCameraRtspUrl } from "../../../services/cameraservice";
 import { getUser } from "../../../lib/auth";
 
 export default function CamerasPage() {
@@ -27,12 +27,20 @@ export default function CamerasPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingCamera, setEditingCamera] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const [formSuccess, setFormSuccess] = useState("");
   const role = getUser()?.role;
   const canManage = role === "admin" || role === "security_officer";
   const canConfigure = role === "admin";
+
+  const closeCameraModal = () => {
+    setShowAddModal(false);
+    setEditingCamera(null);
+    setFormError("");
+    setFormSuccess("");
+  };
 
   const [form, setForm] = useState({
     camera_id: "",
@@ -94,8 +102,14 @@ export default function CamerasPage() {
         fps: parseInt(form.fps, 10) || 30,
       };
 
-      await createCamera(payload);
-      setFormSuccess("Camera registered successfully!");
+      if (editingCamera) {
+        const updated = await updateCameraRtspUrl(editingCamera.id, payload.rtsp_url);
+        setCameras((prev) => prev.map((camera) => camera.id === updated.id ? updated : camera));
+        setFormSuccess("RTSP URL updated successfully!");
+      } else {
+        await createCamera(payload);
+        setFormSuccess("Camera registered successfully!");
+      }
       setForm({
         camera_id: "",
         name: "",
@@ -106,7 +120,7 @@ export default function CamerasPage() {
       });
       loadCameras();
       setTimeout(() => {
-        setShowAddModal(false);
+        closeCameraModal();
         setFormSuccess("");
       }, 1200);
     } catch (err) {
@@ -114,6 +128,21 @@ export default function CamerasPage() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const openEditCamera = (camera) => {
+    setEditingCamera(camera);
+    setForm({
+      camera_id: camera.camera_id || "",
+      name: camera.name || "",
+      location: camera.location || "",
+      rtsp_url: camera.rtsp_url || "",
+      ai_enabled: Boolean(camera.ai_enabled),
+      fps: camera.fps || 30,
+    });
+    setFormError("");
+    setFormSuccess("");
+    setShowAddModal(true);
   };
 
   const filteredCameras = cameras.filter((cam) => {
@@ -226,6 +255,7 @@ export default function CamerasPage() {
                     key={camera.id}
                     camera={camera}
                     onStatusChange={canManage ? handleStatusChange : undefined}
+                    onEdit={canConfigure ? openEditCamera : undefined}
                   />
                 ))}
               </div>
@@ -247,10 +277,10 @@ export default function CamerasPage() {
           </main>
         </div>
 
-        {/* Add Camera Modal */}
+        {/* Camera Modal */}
         {showAddModal && (
           <div
-            onClick={() => setShowAddModal(false)}
+            onClick={closeCameraModal}
             className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-4 backdrop-blur-md"
           >
             <div
@@ -259,13 +289,15 @@ export default function CamerasPage() {
             >
               <div className="flex items-center justify-between pb-4 border-b border-slate-800">
                 <div>
-                  <h2 className="text-xl font-bold text-white">Register Perimeter Camera</h2>
+                    <h2 className="text-xl font-bold text-white">
+                      {editingCamera ? "Update Camera Stream" : "Register Perimeter Camera"}
+                    </h2>
                   <p className="text-xs text-slate-400 mt-0.5">
                     Connect an IP/RTSP camera to the IBVAP surveillance network.
                   </p>
                 </div>
                 <button
-                  onClick={() => setShowAddModal(false)}
+                  onClick={closeCameraModal}
                   className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-800 text-slate-400 hover:text-white"
                 >
                   <X className="h-4 w-4" />
@@ -297,6 +329,7 @@ export default function CamerasPage() {
                       value={form.camera_id}
                       onChange={handleFormChange}
                       required
+                      disabled={Boolean(editingCamera)}
                       placeholder="e.g. CAM_NORTH_01"
                       className="w-full rounded-xl border border-slate-800 bg-slate-900 py-2.5 px-3 text-xs text-white placeholder:text-slate-600 focus:border-teal-400 font-mono"
                     />
@@ -312,6 +345,7 @@ export default function CamerasPage() {
                       min="1"
                       max="60"
                       value={form.fps}
+                      disabled={Boolean(editingCamera)}
                       onChange={handleFormChange}
                       className="w-full rounded-xl border border-slate-800 bg-slate-900 py-2.5 px-3 text-xs text-white focus:border-teal-400 font-mono"
                     />
@@ -327,6 +361,7 @@ export default function CamerasPage() {
                     value={form.name}
                     onChange={handleFormChange}
                     required
+                    disabled={Boolean(editingCamera)}
                     placeholder="e.g. North Gate Entry Post 4"
                     className="w-full rounded-xl border border-slate-800 bg-slate-900 py-2.5 px-3 text-xs text-white placeholder:text-slate-600 focus:border-teal-400"
                   />
@@ -341,6 +376,7 @@ export default function CamerasPage() {
                     value={form.location}
                     onChange={handleFormChange}
                     placeholder="e.g. Indo-Pak Border Sector A, Fence 42"
+                    disabled={Boolean(editingCamera)}
                     className="w-full rounded-xl border border-slate-800 bg-slate-900 py-2.5 px-3 text-xs text-white placeholder:text-slate-600 focus:border-teal-400"
                   />
                 </div>
@@ -375,7 +411,7 @@ export default function CamerasPage() {
                 <div className="flex gap-3 pt-3">
                   <button
                     type="button"
-                    onClick={() => setShowAddModal(false)}
+                    onClick={closeCameraModal}
                     className="flex-1 rounded-xl border border-slate-800 py-2.5 text-xs font-bold text-slate-400 hover:bg-slate-900 hover:text-white"
                   >
                     Cancel
@@ -386,7 +422,7 @@ export default function CamerasPage() {
                     disabled={submitting}
                     className="flex-1 rounded-xl bg-gradient-to-r from-teal-400 to-cyan-500 py-2.5 text-xs font-extrabold text-slate-950 transition hover:opacity-95 disabled:opacity-60"
                   >
-                    {submitting ? "Registering..." : "Add to Network"}
+                    {submitting ? "Saving..." : editingCamera ? "Save RTSP URL" : "Add to Network"}
                   </button>
                 </div>
               </form>

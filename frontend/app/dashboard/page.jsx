@@ -136,7 +136,7 @@ export default function DashboardPage() {
 
                 <Link
                   href="/dashboard/live"
-                  className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-teal-400 to-cyan-500 px-4 py-2 text-xs font-extrabold text-slate-950 shadow-lg shadow-teal-500/20 transition hover:opacity-95"
+                  className="flex items-center gap-1.5 rounded-xl bg-linear-to-r from-teal-400 to-cyan-500 px-4 py-2 text-xs font-extrabold text-slate-950 shadow-lg shadow-teal-500/20 transition hover:opacity-95"
                 >
                   <Radio className="h-3.5 w-3.5" />
                   <span>Open Video Matrix</span>
@@ -221,9 +221,9 @@ export default function DashboardPage() {
             </section>
 
             {/* Main Operational Split: Live Stream Spotlight + Alert Triage */}
-            <div className="grid gap-6 xl:grid-cols-3">
+            <div className="grid items-start gap-6 xl:grid-cols-12">
               {/* Left 2 Cols: Live Camera Stream View */}
-              <div className="space-y-6 xl:col-span-2">
+              <div className="space-y-6 xl:col-span-8">
                 <div className="glass-panel rounded-3xl p-5 sm:p-6">
                   <div className="mb-4 flex items-center justify-between">
                     <div>
@@ -341,8 +341,8 @@ export default function DashboardPage() {
               </div>
 
               {/* Right 1 Col: Incident & Threat Response Stream */}
-              <div className="space-y-6">
-                <div className="glass-panel rounded-3xl p-5 sm:p-6">
+              <div className="space-y-6 xl:col-span-4 xl:sticky xl:top-24">
+                <div className="glass-panel rounded-3xl border border-rose-500/20 p-5 sm:p-6">
                   <div className="mb-4 flex items-center justify-between">
                     <div>
                       <div className="flex items-center gap-2">
@@ -362,7 +362,7 @@ export default function DashboardPage() {
                     </Link>
                   </div>
 
-                  <div className="space-y-3 max-h-[720px] overflow-y-auto pr-1">
+                  <div className="space-y-3 max-h-[calc(100vh-13rem)] overflow-y-auto pr-1">
                     {triageAlerts.length > 0 ? (
                       triageAlerts.map((alert) => (
                           <AlertCard

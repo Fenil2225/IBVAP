@@ -14,6 +14,7 @@ import {
   Shield,
   X,
   Cpu,
+  MapPinned,
 } from "lucide-react";
 
 const navItems = [
@@ -35,6 +36,14 @@ const navItems = [
     label: "Camera Registry",
     icon: Camera,
     badge: null,
+  },
+  {
+    href: "/dashboard/zones",
+    label: "Restricted Areas",
+    icon: MapPinned,
+    badge: "ADMIN",
+    badgeColor: "bg-amber-500/15 text-amber-300 border border-amber-500/30",
+    adminOnly: true,
   },
   {
     href: "/dashboard/anpr",
@@ -69,11 +78,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }) {
   const canManage = role === "admin" || role === "security_officer";
   const canConfigure = role === "admin";
 
-  const visibleNavItems = navItems.filter(({ href }) => {
-    if (href === "/dashboard/cameras") return true;
-    if (href === "/dashboard/videos") return true;
-    return true;
-  });
+  const visibleNavItems = navItems.filter(({ adminOnly }) => !adminOnly || canConfigure);
 
   return (
     <>
@@ -94,7 +99,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }) {
         {/* Brand Header */}
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-tr from-teal-500 via-cyan-400 to-emerald-400 font-black text-slate-950 shadow-lg shadow-teal-500/20">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-linear-to-tr from-teal-500 via-cyan-400 to-emerald-400 font-black text-slate-950 shadow-lg shadow-teal-500/20">
               <Shield className="h-6 w-6 text-slate-950 fill-slate-950" />
             </div>
             <div>
@@ -123,7 +128,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }) {
         </div>
 
         {/* SIH Hackathon Tag */}
-        <div className="mb-6 flex items-center gap-2 rounded-xl border border-teal-500/20 bg-gradient-to-r from-teal-500/10 to-cyan-500/5 px-3 py-2 text-xs text-teal-200">
+        <div className="mb-6 flex items-center gap-2 rounded-xl border border-teal-500/20 bg-linear-to-r from-teal-500/10 to-cyan-500/5 px-3 py-2 text-xs text-teal-200">
           <Cpu className="h-4 w-4 text-teal-400 shrink-0" />
           <div className="truncate">
             <div className="text-[10px] font-bold uppercase tracking-wider text-teal-400">
@@ -144,7 +149,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }) {
                 onClick={onCloseMobile}
                 className={`group flex items-center justify-between rounded-xl px-3.5 py-3 text-sm font-medium transition-all ${
                   isActive
-                    ? "border border-teal-500/40 bg-gradient-to-r from-teal-500/20 to-teal-500/5 text-white shadow-lg shadow-teal-500/10"
+                    ? "border border-teal-500/40 bg-linear-to-r from-teal-500/20 to-teal-500/5 text-white shadow-lg shadow-teal-500/10"
                     : "border border-transparent text-slate-400 hover:border-slate-800 hover:bg-slate-900/60 hover:text-slate-200"
                 }`}
               >

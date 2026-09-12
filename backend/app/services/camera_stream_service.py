@@ -74,15 +74,14 @@ def generate_camera_frames(
 
     rtsp_url = camera["rtsp_url"]
 
-    cap = cv2.VideoCapture(
-        rtsp_url
-    )
+    source = int(rtsp_url) if str(rtsp_url).isdigit() else rtsp_url
+    cap = cv2.VideoCapture(source)
 
     if not cap.isOpened():
-
+        cap.release()
         raise HTTPException(
             status_code=503,
-            detail="Unable to connect to camera"
+            detail="Unable to connect to the configured RTSP stream"
         )
 
     try:
@@ -92,7 +91,8 @@ def generate_camera_frames(
             success, frame = cap.read()
 
             if not success:
-                break
+                cap.release()
+                raise RuntimeError("RTSP stream disconnected while reading frames")
 
             success, buffer = cv2.imencode(
                 ".jpg",

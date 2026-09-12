@@ -5,6 +5,8 @@ from ultralytics import YOLO
 
 class VehicleDetector:
 
+    VEHICLE_TYPES = {"car", "truck", "bus", "motorcycle", "motorbike"}
+
     def __init__(self, model_path=None):
 
         if model_path is None:
@@ -55,6 +57,12 @@ class VehicleDetector:
                     class_id,
                     "vehicle"
                 )
+
+                if class_name not in self.VEHICLE_TYPES:
+                    continue
+
+                if class_name == "motorbike":
+                    class_name = "motorcycle"
 
                 detections.append({
                     "bbox": [

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import {
   Radio,
   Camera,
@@ -23,21 +23,15 @@ export default function LiveStreamPlayer({
   const [isPlaying, setIsPlaying] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [streamUrl, setStreamUrl] = useState("");
   const [key, setKey] = useState(0);
   const containerRef = useRef(null);
   const imgRef = useRef(null);
 
-  const isOnline = camera?.status === "online";
+  const hasConfiguredStream = Boolean(camera?.rtsp_url);
 
-  useEffect(() => {
-    if (camera?.id && isOnline && isPlaying) {
-      setHasError(false);
-      setStreamUrl(getLiveStreamUrl(camera.id));
-    } else {
-      setStreamUrl("");
-    }
-  }, [camera?.id, camera?.status, isOnline, isPlaying, key]);
+  const streamUrl = camera?.id && hasConfiguredStream
+    ? getLiveStreamUrl(camera.id)
+    : "";
 
   const handleReload = () => {
     setHasError(false);
@@ -84,7 +78,7 @@ export default function LiveStreamPlayer({
       } shadow-2xl`}
     >
       {/* Stream Video or Placeholder */}
-      {isOnline && isPlaying && !hasError && streamUrl ? (
+      {hasConfiguredStream && isPlaying && !hasError && streamUrl ? (
         <img
           ref={imgRef}
           key={`${streamUrl}-${key}`}
@@ -96,7 +90,7 @@ export default function LiveStreamPlayer({
       ) : (
         <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 p-6 text-center">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-800 bg-slate-900 text-slate-500">
-            {!isOnline ? (
+            {!hasConfiguredStream ? (
               <Radio className="h-6 w-6 text-slate-600" />
             ) : hasError ? (
               <AlertTriangle className="h-6 w-6 text-amber-500" />
@@ -105,20 +99,20 @@ export default function LiveStreamPlayer({
             )}
           </div>
           <h4 className="mt-3 text-sm font-bold text-slate-300">
-            {!isOnline
-              ? "Camera is Offline"
+            {!hasConfiguredStream
+              ? "No RTSP stream configured"
               : hasError
               ? "Live Feed Disconnected / RTSP Inactive"
               : "Feed Paused"}
           </h4>
           <p className="mt-1 max-w-xs text-xs text-slate-500">
-            {!isOnline
-              ? "Toggle camera status to 'online' in Camera Network to start stream"
+            {!hasConfiguredStream
+              ? "Add an RTSP URL in Camera Network to start the live feed"
               : hasError
               ? "Waiting for camera RTSP video feed from backend..."
               : "Click resume to view live RTSP frames"}
           </p>
-          {isOnline && (
+          {hasConfiguredStream && (
             <button
               onClick={handleReload}
               className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-teal-500/30 bg-teal-500/10 px-3 py-1.5 text-xs font-semibold text-teal-300 transition hover:bg-teal-500/20"
@@ -154,15 +148,15 @@ export default function LiveStreamPlayer({
 
           <span
             className={`flex items-center gap-1.5 rounded-lg px-2.5 py-0.5 text-[10px] font-extrabold backdrop-blur-md ${
-              isOnline && !hasError
+              hasConfiguredStream && !hasError
                 ? "bg-rose-500/90 text-white"
                 : "bg-slate-800/90 text-slate-400"
             }`}
           >
-            {isOnline && !hasError && (
+            {hasConfiguredStream && !hasError && (
               <span className="h-1.5 w-1.5 rounded-full bg-white animate-ping"></span>
             )}
-            {isOnline && !hasError ? "LIVE" : "OFFLINE"}
+            {hasConfiguredStream && !hasError ? "LIVE" : "OFFLINE"}
           </span>
         </div>
       </div>

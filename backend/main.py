@@ -12,6 +12,7 @@ from app.routes import dashboard
 from app.routes import live_camera
 from app.routes import analytics
 from app.routes import anpr
+from app.routes import zones
 
 app = FastAPI(
     title="IBVAP API",
@@ -64,6 +65,7 @@ app.include_router(dashboard.router)
 app.include_router(live_camera.router)
 app.include_router(analytics.router)
 app.include_router(anpr.router)
+app.include_router(zones.router)
 
 # =========================
 # Root

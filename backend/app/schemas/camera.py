@@ -56,6 +56,11 @@ class CameraStatusUpdate(BaseModel):
     status: str
 
 
+class CameraRTSPUpdate(BaseModel):
+
+    rtsp_url: Optional[str] = None
+
+
 # =========================================================
 # CAMERA STATUS RESPONSE
 # =========================================================

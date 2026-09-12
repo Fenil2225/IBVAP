@@ -1,7 +1,9 @@
 import os
 import time
 import threading
+from collections import Counter
 from datetime import datetime
+from difflib import SequenceMatcher
 
 import cv2
 
@@ -82,6 +84,20 @@ def save_detection(
     cursor.close()
     connection.close()
     return detection_id
+
+
+def delete_video_detections(video_id):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    try:
+        cursor.execute(
+            "DELETE FROM anpr_detections WHERE video_id = %s",
+            (video_id,)
+        )
+        connection.commit()
+    finally:
+        cursor.close()
+        connection.close()
 
 
 def get_all_anpr_detections():
@@ -172,8 +188,11 @@ def process_video(video_path, video_id=None, camera_id=None):
         raise Exception("Unable to open video")
 
     frame_count = 0
-    results_count = 0
     anpr_engine = get_engine()
+    observations = []
+
+    if video_id is not None:
+        delete_video_detections(video_id)
 
     while True:
         success, frame = cap.read()
@@ -188,18 +207,55 @@ def process_video(video_path, video_id=None, camera_id=None):
 
         for detection in detections:
             plate_number = detection["plate_number"]
-            if not should_save(camera_id, video_id, plate_number):
-                continue
+            observations.append({
+                "plate_number": plate_number,
+                "vehicle_type": detection["vehicle_type"],
+                "confidence": detection["confidence"],
+                "ocr_confidence": detection.get("ocr_confidence", 0),
+                "plate_crop": detection.get("plate_crop"),
+            })
 
-            save_detection(
-                camera_id=camera_id,
-                video_id=video_id,
-                plate_number=plate_number,
-                vehicle_type=detection["vehicle_type"],
-                confidence=detection["confidence"],
-                frame=frame,
+    clusters = []
+    for observation in observations:
+        for cluster in clusters:
+            cluster_plate = cluster[0]["plate_number"]
+            if SequenceMatcher(None, observation["plate_number"], cluster_plate).ratio() >= 0.8:
+                cluster.append(observation)
+                break
+        else:
+            clusters.append([observation])
+
+    results_count = 0
+    for plate_observations in clusters:
+        # Repeated OCR votes make a plate much less likely to be a one-frame typo.
+        voted_plate = Counter(
+            observation["plate_number"] for observation in plate_observations
+        ).most_common(1)[0][0]
+        matching = [
+            observation for observation in plate_observations
+            if SequenceMatcher(None, observation["plate_number"], voted_plate).ratio() >= 0.8
+        ]
+        best_observation = max(
+            matching or plate_observations,
+            key=lambda observation: (
+                observation["confidence"] * 0.6
+                + observation["ocr_confidence"] * 0.4
             )
-            results_count += 1
+        )
+        confidence = min(
+            1.0,
+            best_observation["confidence"] * 0.6
+            + best_observation["ocr_confidence"] * 0.4
+        )
+        save_detection(
+            camera_id=camera_id,
+            video_id=video_id,
+            plate_number=voted_plate,
+            vehicle_type=best_observation["vehicle_type"],
+            confidence=confidence,
+            frame=best_observation["plate_crop"],
+        )
+        results_count += 1
 
     cap.release()
     return {"frames_processed": frame_count, "detections": results_count}
@@ -232,13 +288,19 @@ def process_live_camera(camera_id, rtsp_url):
             if not should_save(camera_id, None, plate_number):
                 continue
 
+            plate_crop = detection.get("plate_crop")
+            capture = plate_crop if plate_crop is not None else frame
+
             save_detection(
                 camera_id=camera_id,
                 video_id=None,
                 plate_number=plate_number,
                 vehicle_type=detection["vehicle_type"],
-                confidence=detection["confidence"],
-                frame=frame,
+                confidence=(
+                    detection["confidence"] * 0.6
+                    + detection.get("ocr_confidence", 0) * 0.4
+                ),
+                frame=capture,
             )
 
     cap.release()

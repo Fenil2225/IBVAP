@@ -22,6 +22,13 @@ export async function updateCameraStatus(id, status) {
   });
 }
 
+export async function updateCameraRtspUrl(id, rtspUrl) {
+  return await apiRequest(`/api/cameras/${id}/rtsp`, {
+    method: "PATCH",
+    body: JSON.stringify({ rtsp_url: rtspUrl || null }),
+  });
+}
+
 export async function getCameraStatus(id) {
   return await apiRequest(`/api/cameras/${id}/status`);
 }
@@ -33,4 +40,4 @@ export function getLiveStreamUrl(cameraId) {
       : null;
   const baseUrl = getApiBaseUrl();
   return `${baseUrl}/api/live/cameras/${cameraId}/stream${token ? `?token=${token}` : ""}`;
-}
+}

@@ -168,7 +168,10 @@ function LiveMatrixInner() {
           {/* Video Streams Container */}
           {layout === "1x1" && activeFocusCam ? (
             <div className="space-y-4">
-              <LiveStreamPlayer camera={activeFocusCam} />
+              <LiveStreamPlayer
+                key={`${activeFocusCam.id}-${activeFocusCam.rtsp_url || ""}`}
+                camera={activeFocusCam}
+              />
 
               {/* Camera Selector Strip */}
               <div className="flex gap-2 overflow-x-auto pb-2">
@@ -194,7 +197,11 @@ function LiveMatrixInner() {
               {displayedCameras.length > 0 ? (
                 displayedCameras.map((camera) => (
                   <div key={camera.id} className="space-y-2">
-                    <LiveStreamPlayer camera={camera} isSmall={layout === "3x3"} />
+                    <LiveStreamPlayer
+                      key={`${camera.id}-${camera.rtsp_url || ""}`}
+                      camera={camera}
+                      isSmall={layout === "3x3"}
+                    />
                   </div>
                 ))
               ) : (
