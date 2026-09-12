@@ -15,12 +15,14 @@ VEHICLE_CLASSES = {
 }
 
 
-def detect_objects(frame_path: str):
+def detect_objects(frame):
 
     results = model.track(
-        source=frame_path,
+        source=frame,
         persist=True,
-        verbose=False
+        verbose=False,
+        imgsz=640,
+        conf=0.50,
     )
 
     detections = []

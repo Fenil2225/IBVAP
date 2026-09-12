@@ -325,12 +325,23 @@ export default function VideosPage() {
 
                             <td className="py-3 pr-2 text-right">
                               {isProcessed ? (
-                                <Link
-                                  href="/dashboard/anpr"
-                                  className="inline-flex items-center gap-1 text-xs font-bold text-teal-400 hover:text-teal-300"
-                                >
-                                  <span>View ANPR Results →</span>
-                                </Link>
+                                <div className="flex items-center justify-end gap-3">
+                                  <Link
+                                    href={`/dashboard/anpr?video_id=${vid.id}`}
+                                    className="inline-flex items-center gap-1 text-xs font-bold text-teal-400 hover:text-teal-300"
+                                  >
+                                    <span>View ANPR Results →</span>
+                                  </Link>
+                                  {canProcess && (
+                                    <button
+                                      onClick={() => handleRunProcess(vid.id)}
+                                      disabled={isProcessing}
+                                      className="text-[11px] font-bold text-slate-400 hover:text-white disabled:opacity-50"
+                                    >
+                                      Re-run
+                                    </button>
+                                  )}
+                                </div>
                               ) : canProcess ? (
                                 <button
                                   onClick={() => handleRunProcess(vid.id)}

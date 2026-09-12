@@ -1,7 +1,8 @@
 import { apiRequest } from "../lib/api";
 
-export async function getANPRDetections() {
-  return await apiRequest("/api/anpr/");
+export async function getANPRDetections(videoId = null) {
+  const suffix = videoId ? `?video_id=${encodeURIComponent(videoId)}` : "";
+  return await apiRequest(`/api/anpr/${suffix}`);
 }
 
 export async function getANPRDetectionById(id) {

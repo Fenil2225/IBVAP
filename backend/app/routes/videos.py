@@ -24,6 +24,16 @@ def list_videos(current_user=Depends(get_current_user)):
 
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
+    timeout_seconds = max(60, int(os.getenv("VIDEO_PROCESS_TIMEOUT_SECONDS", "1800")))
+    cursor.execute(
+        f"""
+        UPDATE videos
+        SET status = 'failed'
+        WHERE status = 'processing'
+        AND uploaded_at < DATE_SUB(NOW(), INTERVAL {timeout_seconds} SECOND)
+        """
+    )
+    connection.commit()
     cursor.execute(
         """
         SELECT

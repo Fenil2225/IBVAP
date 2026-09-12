@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { Shield, Radio } from "lucide-react";
 import { isAuthenticated, getUser } from "../lib/auth";
 
-export default function ProtectedRoute({ children, allowedRoles = [] }) {
+const EMPTY_ROLES = [];
+
+export default function ProtectedRoute({ children, allowedRoles = EMPTY_ROLES }) {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
 

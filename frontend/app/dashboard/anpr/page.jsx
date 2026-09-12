@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Car,
   Search,
@@ -21,7 +22,7 @@ import PlateCard from "../../../components/PlateCard";
 import StatsCard from "../../../components/StatsCard";
 import { getANPRDetections, searchANPRPlate } from "../../../services/anprservice";
 
-export default function ANPRPage() {
+function ANPRPageContent() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [detections, setDetections] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -30,6 +31,8 @@ export default function ANPRPage() {
   const [vehicleFilter, setVehicleFilter] = useState("all");
   const [highConfidenceOnly, setHighConfidenceOnly] = useState(false);
   const [error, setError] = useState("");
+  const searchParams = useSearchParams();
+  const videoId = searchParams.get("video_id");
 
   const loadDetections = async (query = "", silent = false) => {
     if (!silent) setLoading(true);
@@ -40,7 +43,7 @@ export default function ANPRPage() {
       if (query && query.trim()) {
         data = await searchANPRPlate(query);
       } else {
-        data = await getANPRDetections();
+        data = await getANPRDetections(videoId);
       }
       setDetections(Array.isArray(data) ? data : []);
       setError("");
@@ -55,7 +58,7 @@ export default function ANPRPage() {
 
   useEffect(() => {
     loadDetections();
-  }, []);
+  }, [videoId]);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -297,5 +300,13 @@ export default function ANPRPage() {
         </div>
       </div>
     </ProtectedRoute>
+  );
+}
+
+export default function ANPRPage() {
+  return (
+    <Suspense fallback={<div className="ibvap-shell min-h-screen p-8 text-slate-400">Loading ANPR results...</div>}>
+      <ANPRPageContent />
+    </Suspense>
   );
 }

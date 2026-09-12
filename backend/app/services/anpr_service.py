@@ -100,12 +100,11 @@ def delete_video_detections(video_id):
         connection.close()
 
 
-def get_all_anpr_detections():
+def get_all_anpr_detections(video_id=None):
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
 
-    cursor.execute(
-        """
+    query = """
         SELECT
             id,
             camera_id,
@@ -116,9 +115,13 @@ def get_all_anpr_detections():
             detected_at,
             image_path
         FROM anpr_detections
-        ORDER BY detected_at DESC
-        """
-    )
+    """
+    params = ()
+    if video_id is not None:
+        query += " WHERE video_id = %s"
+        params = (video_id,)
+    query += " ORDER BY detected_at DESC"
+    cursor.execute(query, params)
 
     results = cursor.fetchall()
     cursor.close()
@@ -181,7 +184,7 @@ def search_anpr_detections(plate_number: str):
     return results
 
 
-def process_video(video_path, video_id=None, camera_id=None):
+def process_video(video_path, video_id=None, camera_id=None, timeout_seconds=None):
     cap = cv2.VideoCapture(video_path)
 
     if not cap.isOpened():
@@ -190,17 +193,24 @@ def process_video(video_path, video_id=None, camera_id=None):
     frame_count = 0
     anpr_engine = get_engine()
     observations = []
+    deadline = time.monotonic() + timeout_seconds if timeout_seconds is not None else None
+    source_fps = cap.get(cv2.CAP_PROP_FPS) or 25
+    sample_fps = min(max(float(os.getenv("ANPR_SAMPLE_FPS", "3")), 1.0), 8.0)
+    sample_interval = max(1, round(source_fps / sample_fps))
 
     if video_id is not None:
         delete_video_detections(video_id)
 
     while True:
+        if deadline is not None and time.monotonic() > deadline:
+            cap.release()
+            raise TimeoutError("ANPR processing exceeded its time limit")
         success, frame = cap.read()
         if not success:
             break
 
         frame_count += 1
-        if frame_count % 5 != 0:
+        if frame_count % sample_interval != 0:
             continue
 
         detections = anpr_engine.process_frame(frame)

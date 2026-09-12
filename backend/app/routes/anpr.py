@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.routes.users import get_current_user
 from app.schemas.anpr import ANPRDetectionResponse
@@ -16,8 +16,11 @@ router = APIRouter(
 
 
 @router.get("/", response_model=list[ANPRDetectionResponse])
-def get_anpr_detections(current_user=Depends(get_current_user)):
-    return get_all_anpr_detections()
+def get_anpr_detections(
+    video_id: int | None = Query(default=None),
+    current_user=Depends(get_current_user)
+):
+    return get_all_anpr_detections(video_id=video_id)
 
 
 @router.get("/search/{plate_number}", response_model=list[ANPRDetectionResponse])
