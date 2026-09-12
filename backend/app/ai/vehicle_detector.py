@@ -14,9 +14,12 @@ class VehicleDetector:
             )
 
         if not os.path.exists(model_path):
-            raise FileNotFoundError(
-                f"Vehicle model not found: {model_path}"
+            bundled_model = os.path.abspath(
+                os.path.join(os.path.dirname(__file__), "..", "..", "yolo11n.pt")
             )
+            if not os.path.exists(bundled_model):
+                raise FileNotFoundError(f"Vehicle model not found: {model_path}")
+            model_path = bundled_model
 
         self.model = YOLO(model_path)
 

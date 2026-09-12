@@ -19,6 +19,7 @@ import Sidebar from "../../../components/Sidebar";
 import Navbar from "../../../components/Navbar";
 import LiveStreamPlayer from "../../../components/LiveStreamPlayer";
 import { getCameras } from "../../../services/cameraservice";
+import { getUser } from "../../../lib/auth";
 
 function LiveMatrixInner() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -26,6 +27,7 @@ function LiveMatrixInner() {
   const [layout, setLayout] = useState("2x2"); // '1x1', '2x2', '3x3'
   const [selectedCameraId, setSelectedCameraId] = useState(null);
   const [filterOnlineOnly, setFilterOnlineOnly] = useState(false);
+  const canConfigure = getUser()?.role === "admin";
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const searchParams = useSearchParams();
@@ -154,12 +156,12 @@ function LiveMatrixInner() {
                 <span>Sync Feeds</span>
               </button>
 
-              <Link
+              {canConfigure && <Link
                 href="/dashboard/cameras"
                 className="flex items-center gap-1.5 rounded-xl bg-teal-500/15 border border-teal-500/30 px-3.5 py-2 text-xs font-bold text-teal-300 hover:bg-teal-500/25"
               >
                 <Plus className="h-3.5 w-3.5" /> Add Camera
-              </Link>
+              </Link>}
             </div>
           </div>
 

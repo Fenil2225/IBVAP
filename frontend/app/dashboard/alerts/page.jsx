@@ -20,6 +20,7 @@ import AlertCard from "../../../components/AlertCard";
 import StatsCard from "../../../components/StatsCard";
 import { getAlerts, createAlert, acknowledgeAlert, resolveAlert } from "../../../services/alertservice";
 import { getCameras } from "../../../services/cameraservice";
+import { getUser } from "../../../lib/auth";
 
 export default function AlertsPage() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -31,6 +32,8 @@ export default function AlertsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [showAddModal, setShowAddModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const role = getUser()?.role;
+  const canRespond = role === "admin" || role === "security_officer";
 
   const [form, setForm] = useState({
     camera_id: "",
@@ -165,13 +168,15 @@ export default function AlertsPage() {
                   <span>Sync Alerts</span>
                 </button>
 
-                <button
-                  onClick={() => setShowAddModal(true)}
-                  className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 px-4 py-2.5 text-xs font-extrabold text-white shadow-lg shadow-rose-500/20 transition hover:opacity-95"
-                >
-                  <Plus className="h-4 w-4" />
-                  <span>Dispatch Incident</span>
-                </button>
+                {canRespond && (
+                  <button
+                    onClick={() => setShowAddModal(true)}
+                    className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 px-4 py-2.5 text-xs font-extrabold text-white shadow-lg shadow-rose-500/20 transition hover:opacity-95"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span>Dispatch Incident</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -263,8 +268,8 @@ export default function AlertsPage() {
                   <AlertCard
                     key={alert.id}
                     alert={alert}
-                    onAcknowledge={handleAcknowledge}
-                    onResolve={handleResolve}
+                    onAcknowledge={canRespond ? handleAcknowledge : undefined}
+                    onResolve={canRespond ? handleResolve : undefined}
                   />
                 ))}
               </div>

@@ -22,6 +22,7 @@ import Navbar from "../../../components/Navbar";
 import StatsCard from "../../../components/StatsCard";
 import { getVideos, uploadVideo, processVideo } from "../../../services/videoservice";
 import { getCameras } from "../../../services/cameraservice";
+import { getUser } from "../../../lib/auth";
 
 export default function VideosPage() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -36,6 +37,8 @@ export default function VideosPage() {
 
   const [selectedCameraId, setSelectedCameraId] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
+  const role = getUser()?.role;
+  const canProcess = role === "admin" || role === "security_officer";
 
   const loadData = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -46,9 +49,9 @@ export default function VideosPage() {
       setVideos(Array.isArray(vData) ? vData : []);
       const camList = Array.isArray(cData) ? cData : [];
       setCameras(camList);
-      if (camList.length > 0 && !selectedCameraId) {
-        setSelectedCameraId(camList[0].id);
-      }
+      setSelectedCameraId((currentId) =>
+        currentId || (camList.length > 0 ? String(camList[0].id) : "")
+      );
     } catch {
       setVideos([]);
     } finally {
@@ -161,7 +164,7 @@ export default function VideosPage() {
             </div>
 
             {/* Video Upload Dropzone & Form */}
-            <section className="glass-panel rounded-3xl p-6 sm:p-8 border border-slate-800">
+            {canProcess && <section className="glass-panel rounded-3xl p-6 sm:p-8 border border-slate-800">
               <div className="flex items-center gap-3 pb-4 border-b border-slate-800">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-500/15 text-teal-300 border border-teal-500/30">
                   <UploadCloud className="h-5 w-5" />
@@ -234,7 +237,7 @@ export default function VideosPage() {
                   </button>
                 </div>
               </form>
-            </section>
+            </section>}
 
             {/* Video Forensics Archive Table */}
             <section className="glass-panel rounded-3xl p-6 border border-slate-800">
@@ -328,7 +331,7 @@ export default function VideosPage() {
                                 >
                                   <span>View ANPR Results →</span>
                                 </Link>
-                              ) : (
+                              ) : canProcess ? (
                                 <button
                                   onClick={() => handleRunProcess(vid.id)}
                                   disabled={isProcessing}
@@ -339,6 +342,8 @@ export default function VideosPage() {
                                     {isProcessing ? "Analyzing..." : "Run AI Analysis"}
                                   </span>
                                 </button>
+                              ) : (
+                                <span className="text-xs text-slate-500">Read-only access</span>
                               )}
                             </td>
                           </tr>

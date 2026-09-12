@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, status
 
-from app.routes.users import get_current_user
+from app.routes.users import get_current_user, require_roles
 
 from app.schemas.camera import (
     CameraCreate,
@@ -35,7 +35,7 @@ router = APIRouter(
 )
 def add_camera(
     camera: CameraCreate,
-    current_user=Depends(get_current_user)
+    current_user=Depends(require_roles("admin"))
 ):
 
     try:
@@ -120,7 +120,7 @@ def get_camera(
 def change_camera_status(
     camera_id: int,
     camera_status: CameraStatusUpdate,
-    current_user=Depends(get_current_user)
+    current_user=Depends(require_roles("admin", "security_officer"))
 ):
 
     allowed_statuses = [

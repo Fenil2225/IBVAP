@@ -61,20 +61,20 @@ export default function StatsCard({
         )}
       </div>
 
-      <div className="mt-4 flex items-baseline justify-between">
+      <div className="mt-4 grid min-h-[52px] grid-cols-[1fr_auto] items-center gap-3">
         <p className="font-mono text-3xl font-black text-white tracking-tight lg:text-4xl">
           {value !== undefined && value !== null ? value : "--"}
         </p>
 
         {trend && (
-          <span className="text-xs font-semibold text-teal-300 bg-teal-500/10 px-2 py-0.5 rounded-md border border-teal-500/20">
+          <span className="justify-self-end text-right text-xs font-semibold text-teal-300 bg-teal-500/10 px-2 py-0.5 rounded-md border border-teal-500/20">
             {trend}
           </span>
         )}
       </div>
 
       {subtitle && (
-        <p className="mt-2 text-xs text-slate-400">{subtitle}</p>
+        <p className="mt-2 min-h-8 text-xs leading-5 text-slate-400">{subtitle}</p>
       )}
     </div>
   );

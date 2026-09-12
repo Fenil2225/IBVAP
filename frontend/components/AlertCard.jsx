@@ -125,7 +125,7 @@ export default function AlertCard({ alert, onAcknowledge, onResolve }) {
       )}
 
       {/* Meta Timestamps */}
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400 pt-2 border-t border-slate-800/50">
+      <div className="mt-4 grid gap-1 border-t border-slate-800/50 pt-3 text-[11px] text-slate-400">
         <span className="flex items-center gap-1.5">
           <Clock className="h-3 w-3 text-slate-500" />
           {alert.created_at ? new Date(alert.created_at).toLocaleString() : "Real-time"}

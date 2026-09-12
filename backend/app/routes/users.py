@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from app.services.auth_service import decode_access_token
@@ -43,3 +43,15 @@ def get_current_user(
             status_code=401,
             detail="Invalid or expired token"
         )
+
+
+def require_roles(*allowed_roles):
+    def role_dependency(current_user=Depends(get_current_user)):
+        if current_user.get("role") not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to perform this action",
+            )
+        return current_user
+
+    return role_dependency

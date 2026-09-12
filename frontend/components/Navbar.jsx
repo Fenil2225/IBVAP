@@ -3,15 +3,17 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bell, ShieldAlert, Radio, UserCheck, LogOut, Menu } from "lucide-react";
+import { Bell, ShieldAlert, Radio, LogOut, Menu, Moon, Sun } from "lucide-react";
 import { getUser, logout } from "../lib/auth";
 import { getRecentAlerts } from "../services/analyticsservice";
+import { useTheme } from "./ThemeProvider";
 
 export default function Navbar({ onMobileMenuToggle }) {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [unackAlertCount, setUnackAlertCount] = useState(0);
   const [currentTime, setCurrentTime] = useState("");
+  const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     setUser(getUser());
@@ -73,6 +75,15 @@ export default function Navbar({ onMobileMenuToggle }) {
       </div>
 
       <div className="flex items-center gap-3 lg:gap-5">
+        <button
+          onClick={toggleTheme}
+          className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-800 bg-slate-900/80 text-slate-300 transition hover:border-teal-500/40 hover:text-teal-300"
+          title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+        >
+          {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+        </button>
+
         {/* System Time */}
         <div className="hidden items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/60 px-3.5 py-1.5 font-mono text-xs text-slate-300 sm:flex">
           <Radio className="h-3.5 w-3.5 text-teal-400 animate-pulse" />

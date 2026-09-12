@@ -6,6 +6,7 @@ from app.services.detection_service import save_detection
 from app.services.zone_service import get_active_zones
 from app.services.intrusion_service import check_intrusion
 from app.services.alert_service import create_alert
+from app.services.anpr_service import process_video as process_anpr_video
 from app.database.connection import get_db_connection
 
 
@@ -423,6 +424,19 @@ def process_video(video_id: int):
 
         cap.release()
 
+    try:
+        anpr_result = process_anpr_video(
+            video_path,
+            video_id=video_id,
+            camera_id=camera_id,
+        )
+    except Exception:
+        update_video_status(
+            video_id,
+            "failed"
+        )
+        raise
+
     # =========================================================
     # PROCESSING COMPLETED
     # =========================================================
@@ -451,6 +465,8 @@ def process_video(video_id: int):
         "intrusion_count": intrusion_count,
 
         "alert_count": alert_count,
+
+        "anpr_detections": anpr_result["detections"],
 
         "frames_directory": frames_dir
     }

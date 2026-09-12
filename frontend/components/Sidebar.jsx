@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { getUser } from "../lib/auth";
 import {
   LayoutDashboard,
   Radio,
@@ -64,6 +65,15 @@ const navItems = [
 
 export default function Sidebar({ isMobileOpen, onCloseMobile }) {
   const pathname = usePathname();
+  const role = getUser()?.role;
+  const canManage = role === "admin" || role === "security_officer";
+  const canConfigure = role === "admin";
+
+  const visibleNavItems = navItems.filter(({ href }) => {
+    if (href === "/dashboard/cameras") return true;
+    if (href === "/dashboard/videos") return true;
+    return true;
+  });
 
   return (
     <>
@@ -125,7 +135,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }) {
 
         {/* Navigation List */}
         <nav className="flex-1 space-y-1.5 overflow-y-auto pr-1">
-          {navItems.map(({ href, label, icon: Icon, badge, badgeColor }) => {
+          {visibleNavItems.map(({ href, label, icon: Icon, badge, badgeColor }) => {
             const isActive = pathname === href;
             return (
               <Link
@@ -156,6 +166,16 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }) {
             );
           })}
         </nav>
+
+        <div className="mb-4 rounded-2xl border border-slate-800/90 bg-slate-900/50 p-3">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Access Profile</div>
+          <div className="mt-1 text-xs font-bold capitalize text-teal-300">
+            {role?.replace("_", " ") || "operator"}
+          </div>
+          <div className="mt-2 text-[11px] leading-relaxed text-slate-400">
+            {canConfigure ? "Full system control" : canManage ? "Monitoring and incident response" : "Read-only intelligence"}
+          </div>
+        </div>
 
         {/* System Telemetry Footer */}
         <div className="mt-auto pt-4 border-t border-slate-800/80">

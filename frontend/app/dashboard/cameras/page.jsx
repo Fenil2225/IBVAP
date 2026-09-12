@@ -18,6 +18,7 @@ import Sidebar from "../../../components/Sidebar";
 import Navbar from "../../../components/Navbar";
 import CameraCard from "../../../components/CameraCard";
 import { getCameras, createCamera, updateCameraStatus } from "../../../services/cameraservice";
+import { getUser } from "../../../lib/auth";
 
 export default function CamerasPage() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -29,6 +30,9 @@ export default function CamerasPage() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const [formSuccess, setFormSuccess] = useState("");
+  const role = getUser()?.role;
+  const canManage = role === "admin" || role === "security_officer";
+  const canConfigure = role === "admin";
 
   const [form, setForm] = useState({
     camera_id: "",
@@ -159,13 +163,15 @@ export default function CamerasPage() {
                   <RefreshCw className="h-4 w-4" />
                 </button>
 
-                <button
-                  onClick={() => setShowAddModal(true)}
-                  className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-teal-400 to-cyan-500 px-4 py-2.5 text-xs font-extrabold text-slate-950 shadow-lg shadow-teal-500/20 transition hover:opacity-95"
-                >
-                  <Plus className="h-4 w-4" />
-                  <span>Register New Camera</span>
-                </button>
+                {canConfigure && (
+                  <button
+                    onClick={() => setShowAddModal(true)}
+                    className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-teal-400 to-cyan-500 px-4 py-2.5 text-xs font-extrabold text-slate-950 shadow-lg shadow-teal-500/20 transition hover:opacity-95"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span>Register New Camera</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -219,7 +225,7 @@ export default function CamerasPage() {
                   <CameraCard
                     key={camera.id}
                     camera={camera}
-                    onStatusChange={handleStatusChange}
+                    onStatusChange={canManage ? handleStatusChange : undefined}
                   />
                 ))}
               </div>

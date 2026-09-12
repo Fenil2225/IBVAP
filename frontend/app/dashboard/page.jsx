@@ -28,6 +28,7 @@ import AlertCard from "../../components/AlertCard";
 import { getDashboardSummary, getRecentDetections, getRecentAlerts } from "../../services/analyticsservice";
 import { getCameras } from "../../services/cameraservice";
 import { acknowledgeAlert, resolveAlert } from "../../services/alertservice";
+import { getUser } from "../../lib/auth";
 
 export default function DashboardPage() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -38,6 +39,9 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const user = getUser();
+  const canRespond = user?.role === "admin" || user?.role === "security_officer";
+  const canConfigure = user?.role === "admin";
 
   const loadData = useCallback(async (isSilent = false) => {
     if (!isSilent) setLoading(true);
@@ -54,10 +58,10 @@ export default function DashboardPage() {
       if (sumRes.status === "fulfilled") setSummary(sumRes.value);
       if (camRes.status === "fulfilled") setCameras(Array.isArray(camRes.value) ? camRes.value : []);
       if (detRes.status === "fulfilled" && detRes.value?.data) {
-        setRecentDetections(detRes.value.data);
+        setRecentDetections(Array.isArray(detRes.value.data) ? detRes.value.data : []);
       }
       if (altRes.status === "fulfilled" && altRes.value?.data) {
-        setRecentAlerts(altRes.value.data);
+        setRecentAlerts(Array.isArray(altRes.value.data) ? altRes.value.data : []);
       }
       setError("");
     } catch (err) {
@@ -85,6 +89,13 @@ export default function DashboardPage() {
   };
 
   const onlineCameras = cameras.filter((c) => c.status === "online");
+  const triageAlerts = [...recentAlerts]
+    .filter((alert) => alert.status !== "resolved")
+    .sort((left, right) => {
+      const severityRank = { critical: 0, high: 1, medium: 2, low: 3 };
+      return (severityRank[left.severity] ?? 4) - (severityRank[right.severity] ?? 4);
+    })
+    .slice(0, 4);
 
   return (
     <ProtectedRoute>
@@ -188,18 +199,18 @@ export default function DashboardPage() {
                 <span>Operational Quick Launch:</span>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <Link
+                {canConfigure && <Link
                   href="/dashboard/cameras"
                   className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900/90 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-teal-500/40 hover:text-white"
                 >
                   <Plus className="h-3 w-3 text-teal-400" /> Add Camera
-                </Link>
-                <Link
+                </Link>}
+                {canRespond && <Link
                   href="/dashboard/videos"
                   className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900/90 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-teal-500/40 hover:text-white"
                 >
                   <Upload className="h-3 w-3 text-cyan-400" /> Upload Video
-                </Link>
+                </Link>}
                 <Link
                   href="/dashboard/anpr"
                   className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900/90 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-teal-500/40 hover:text-white"
@@ -352,17 +363,15 @@ export default function DashboardPage() {
                   </div>
 
                   <div className="space-y-3 max-h-[720px] overflow-y-auto pr-1">
-                    {recentAlerts.length > 0 ? (
-                      recentAlerts
-                        .slice(0, 4)
-                        .map((alert) => (
+                    {triageAlerts.length > 0 ? (
+                      triageAlerts.map((alert) => (
                           <AlertCard
                             key={alert.id}
                             alert={alert}
-                            onAcknowledge={handleAcknowledge}
-                            onResolve={handleResolve}
+                            onAcknowledge={canRespond ? handleAcknowledge : undefined}
+                            onResolve={canRespond ? handleResolve : undefined}
                           />
-                        ))
+                      ))
                     ) : (
                       <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-6 text-center">
                         <CheckCircle2 className="h-8 w-8 text-emerald-400 mx-auto mb-2" />

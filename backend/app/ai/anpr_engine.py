@@ -70,10 +70,13 @@ class ANPREngine:
             5
         )
 
-        text = pytesseract.image_to_string(
-            threshold,
-            config="--psm 7"
-        )
+        try:
+            text = pytesseract.image_to_string(
+                threshold,
+                config="--psm 7"
+            )
+        except (pytesseract.TesseractNotFoundError, RuntimeError):
+            return None
 
         plate = self.clean_plate(text)
 

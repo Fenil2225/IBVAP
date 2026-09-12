@@ -10,7 +10,7 @@ from app.services.alert_service import (
     acknowledge_alert,
     resolve_alert
 )
-from app.routes.users import get_current_user
+from app.routes.users import get_current_user, require_roles
 
 
 # =========================================================
@@ -47,7 +47,7 @@ class AlertCreate(BaseModel):
 )
 def add_alert(
     alert: AlertCreate,
-    current_user=Depends(get_current_user)
+    current_user=Depends(require_roles("admin", "security_officer"))
 ):
 
     allowed_severities = [
@@ -133,7 +133,7 @@ def get_alert(
 )
 def acknowledge(
     alert_id: int,
-    current_user=Depends(get_current_user)
+    current_user=Depends(require_roles("admin", "security_officer"))
 ):
 
     alert = acknowledge_alert(alert_id)
@@ -158,7 +158,7 @@ def acknowledge(
 )
 def resolve(
     alert_id: int,
-    current_user=Depends(get_current_user)
+    current_user=Depends(require_roles("admin", "security_officer"))
 ):
 
     alert = resolve_alert(alert_id)

@@ -130,7 +130,6 @@ export default function RegisterPage() {
                 className="w-full rounded-xl border border-slate-800 bg-slate-900/80 py-3 pr-4 pl-10 text-sm text-white focus:border-teal-400"
               >
                 <option value="security_officer">Security Officer (Monitoring & Incident Response)</option>
-                <option value="admin">Administrator (Full Camera & System Control)</option>
                 <option value="viewer">Viewer (Read-only Intelligence)</option>
               </select>
             </div>

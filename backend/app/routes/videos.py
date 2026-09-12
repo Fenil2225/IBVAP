@@ -3,7 +3,7 @@ import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
 
-from app.routes.users import get_current_user
+from app.routes.users import get_current_user, require_roles
 from app.schemas.video import VideoResponse
 from app.services.video_service import create_video_record, get_video_by_id, process_video
 
@@ -55,8 +55,9 @@ def get_video(video_id: int, current_user=Depends(get_current_user)):
 @router.post("/upload", response_model=VideoResponse, status_code=status.HTTP_201_CREATED)
 async def upload_video(
     camera_id: int,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_roles("admin", "security_officer")),
 ):
     extension = os.path.splitext(file.filename or "")[1].lower()
     if extension not in ALLOWED_EXTENSIONS:
@@ -64,7 +65,6 @@ async def upload_video(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Unsupported video format",
         )
-
     unique_filename = f"{uuid.uuid4().hex}{extension}"
     file_path = os.path.join(UPLOAD_DIR, unique_filename)
 
@@ -92,6 +92,7 @@ async def upload_video(
             file_path=file_path,
             file_size=file_size,
         )
+        background_tasks.add_task(process_video, video["id"])
         return video
     except Exception as error:
         if os.path.exists(file_path):
@@ -106,7 +107,7 @@ async def upload_video(
 def process_uploaded_video(
     video_id: int,
     background_tasks: BackgroundTasks,
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_roles("admin", "security_officer")),
 ):
     video = get_video_by_id(video_id)
     if video is None:
