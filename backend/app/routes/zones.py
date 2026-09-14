@@ -13,11 +13,13 @@ from app.services.zone_service import (
 router = APIRouter(prefix="/api/zones", tags=["Restricted Areas"])
 
 
+@router.get("", response_model=list[ZoneResponse])
 @router.get("/", response_model=list[ZoneResponse])
 def list_zones(current_user=Depends(require_roles("admin"))):
     return get_all_zones()
 
 
+@router.post("", response_model=ZoneResponse, status_code=status.HTTP_201_CREATED)
 @router.post("/", response_model=ZoneResponse, status_code=status.HTTP_201_CREATED)
 def add_zone(zone: ZoneCreate, current_user=Depends(require_roles("admin"))):
     try:

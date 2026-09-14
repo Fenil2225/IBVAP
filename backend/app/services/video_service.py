@@ -195,19 +195,32 @@ def process_video(video_id: int):
             os.getenv("VIDEO_PROCESS_TIMEOUT_SECONDS", "1800")
         )
         zones = get_active_zones(camera_id)
-        frames_dir = os.path.join("uploads", "frames", str(video_id))
-        os.makedirs(frames_dir, exist_ok=True)
+        
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
             raise RuntimeError("Unable to open video")
 
+        source_fps = cap.get(cv2.CAP_PROP_FPS) or 25
+        # Sample ~3-5 frames per second for high-speed yet accurate detection
+        sample_interval = max(1, round(source_fps / 4.0))
+
         frame_count = 0
-        saved_frames = 0
+        processed_frames = 0
         total_detections = 0
         person_count = 0
         vehicle_count = 0
         intrusion_count = 0
         alert_count = 0
+        anpr_detections_count = 0
+
+        # Run unified ANPR engine in the same loop
+        from app.services.anpr_service import get_engine, save_detection as save_anpr_detection, delete_video_detections
+        from collections import Counter
+        from difflib import SequenceMatcher
+
+        delete_video_detections(video_id)
+        anpr_engine = get_engine()
+        anpr_observations = []
 
         while True:
             if time.monotonic() > deadline:
@@ -217,13 +230,14 @@ def process_video(video_id: int):
             if not success:
                 break
             frame_count += 1
-            if frame_count % 30 != 0:
+            if frame_count % sample_interval != 0:
                 continue
 
-            frame_path = os.path.join(frames_dir, f"frame_{frame_count}.jpg")
-            cv2.imwrite(frame_path, frame)
-            saved_frames += 1
+            processed_frames += 1
+
+            # 1. Object & Intrusion Detection
             detections = detect_objects(frame)
+            has_vehicle = False
 
             for detection in detections:
                 detection_type = detection.get("detection_type")
@@ -238,6 +252,7 @@ def process_video(video_id: int):
                     person_count += 1
                 elif detection_type == "vehicle":
                     vehicle_count += 1
+                    has_vehicle = True
 
             if zones and detections:
                 for intrusion in check_intrusion(detections, zones):
@@ -258,27 +273,70 @@ def process_video(video_id: int):
                     )
                     alert_count += 1
 
+            # 2. ANPR Plate Detection (run on frames with vehicles or every sampled frame)
+            anpr_results = anpr_engine.process_frame(frame)
+            for det in anpr_results:
+                anpr_observations.append({
+                    "plate_number": det["plate_number"],
+                    "vehicle_type": det.get("vehicle_type", "vehicle"),
+                    "confidence": det.get("confidence", 0.8),
+                    "ocr_confidence": det.get("ocr_confidence", 0.8),
+                    "plate_crop": det.get("plate_crop", frame),
+                })
+
         cap.release()
         cap = None
-        anpr_result = process_anpr_video(
-            video_path,
-            video_id=video_id,
-            camera_id=camera_id,
-            timeout_seconds=max(1, deadline - time.monotonic()),
-        )
+
+        # 3. Cluster and deduplicate observed plates
+        clusters = []
+        for obs in anpr_observations:
+            for cluster in clusters:
+                cluster_plate = cluster[0]["plate_number"]
+                if SequenceMatcher(None, obs["plate_number"], cluster_plate).ratio() >= 0.75:
+                    cluster.append(obs)
+                    break
+            else:
+                clusters.append([obs])
+
+        for plate_obs in clusters:
+            voted_plate = Counter(
+                o["plate_number"] for o in plate_obs
+            ).most_common(1)[0][0]
+
+            matching = [
+                o for o in plate_obs
+                if SequenceMatcher(None, o["plate_number"], voted_plate).ratio() >= 0.75
+            ]
+            best_obs = max(
+                matching or plate_obs,
+                key=lambda o: (o["confidence"] * 0.5 + o["ocr_confidence"] * 0.5)
+            )
+            confidence = min(
+                1.0,
+                best_obs["confidence"] * 0.5 + best_obs["ocr_confidence"] * 0.5
+            )
+            save_anpr_detection(
+                camera_id=camera_id,
+                video_id=video_id,
+                plate_number=voted_plate,
+                vehicle_type=best_obs["vehicle_type"],
+                confidence=confidence,
+                frame=best_obs["plate_crop"],
+            )
+            anpr_detections_count += 1
+
         update_video_status(video_id, "processed")
         return {
             "video_id": video_id,
             "camera_id": camera_id,
             "total_frames": frame_count,
-            "processed_frames": saved_frames,
+            "processed_frames": processed_frames,
             "total_detections": total_detections,
             "person_count": person_count,
             "vehicle_count": vehicle_count,
             "intrusion_count": intrusion_count,
             "alert_count": alert_count,
-            "anpr_detections": anpr_result["detections"],
-            "frames_directory": frames_dir,
+            "anpr_detections": anpr_detections_count,
         }
     except Exception:
         if cap is not None:
@@ -287,4 +345,4 @@ def process_video(video_id: int):
             update_video_status(video_id, "failed")
         except Exception:
             pass
-        raise
+        raise

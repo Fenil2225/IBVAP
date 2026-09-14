@@ -8,6 +8,7 @@ import {
   ShieldCheck,
   TrendingUp,
   Camera,
+  Radio,
   Car,
   User,
   AlertTriangle,
@@ -15,13 +16,16 @@ import {
   Clock,
   Layers,
   Cpu,
+  PieChart,
 } from "lucide-react";
 import ProtectedRoute from "../../../components/ProtectedRoute";
 import Sidebar from "../../../components/Sidebar";
 import Navbar from "../../../components/Navbar";
 import StatsCard from "../../../components/StatsCard";
+import CircularChart from "../../../components/CircularChart";
 import {
   getAnalyticsSummary,
+  getDashboardSummary,
   getDetectionStatistics,
   getAlertStatistics,
   getRecentDetections,
@@ -30,6 +34,7 @@ import {
 
 export default function AnalyticsPage() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [dashSummary, setDashSummary] = useState(null);
   const [summary, setSummary] = useState(null);
   const [detectionStats, setDetectionStats] = useState([]);
   const [alertStats, setAlertStats] = useState([]);
@@ -38,12 +43,17 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Graph toggles requested by user
+  const [showDetectionGraph, setShowDetectionGraph] = useState(false);
+  const [showAlertGraph, setShowAlertGraph] = useState(false);
+
   const loadData = async (silent = false) => {
     if (!silent) setLoading(true);
     else setRefreshing(true);
 
     try {
-      const [sumRes, detRes, altRes, recDetRes, recAltRes] = await Promise.allSettled([
+      const [dashRes, sumRes, detRes, altRes, recDetRes, recAltRes] = await Promise.allSettled([
+        getDashboardSummary(),
         getAnalyticsSummary(),
         getDetectionStatistics(),
         getAlertStatistics(),
@@ -51,6 +61,7 @@ export default function AnalyticsPage() {
         getRecentAlerts(),
       ]);
 
+      if (dashRes.status === "fulfilled") setDashSummary(dashRes.value);
       if (sumRes.status === "fulfilled") setSummary(sumRes.value?.data);
       if (detRes.status === "fulfilled") setDetectionStats(detRes.value?.data || []);
       if (altRes.status === "fulfilled") setAlertStats(altRes.value?.data || []);
@@ -63,12 +74,57 @@ export default function AnalyticsPage() {
   };
 
   useEffect(() => {
-    loadData();
+    const timer = setTimeout(() => loadData(), 0);
+    return () => clearTimeout(timer);
   }, []);
 
-  // Compute totals
-  const totalDetections = detectionStats.reduce((acc, d) => acc + (d.total || 0), 0) || 1;
-  const totalAlerts = alertStats.reduce((acc, a) => acc + (a.total || 0), 0) || 1;
+  // Compute exact totals & subtotals with full mathematical consistency
+  const totalCams = dashSummary?.total_cameras ?? summary?.cameras?.total ?? 0;
+  const onlineCams = dashSummary?.online_cameras ?? summary?.cameras?.online ?? 0;
+  const offlineCams = dashSummary?.offline_cameras ?? summary?.cameras?.offline ?? Math.max(0, totalCams - onlineCams);
+
+  const personDet = dashSummary?.person_detections ?? summary?.detections?.person ?? 0;
+  const vehicleDet = dashSummary?.vehicle_detections ?? summary?.detections?.vehicle ?? 0;
+  const intrusionDet = dashSummary?.intrusion_detections ?? summary?.detections?.intrusion ?? 0;
+  const otherDet = dashSummary?.other_detections ?? summary?.detections?.other ?? 0;
+  const totalDet = dashSummary?.total_detections ?? summary?.detections?.total ?? (personDet + vehicleDet + intrusionDet + otherDet);
+
+  const unackAlerts = dashSummary?.unacknowledged_alerts ?? summary?.alerts?.unacknowledged ?? 0;
+  const ackAlerts = dashSummary?.acknowledged_alerts ?? summary?.alerts?.acknowledged ?? 0;
+  const resAlerts = dashSummary?.resolved_alerts ?? summary?.alerts?.resolved ?? 0;
+  const critAlerts = dashSummary?.critical_alerts ?? summary?.alerts?.critical ?? 0;
+  const totalAlts = dashSummary?.total_alerts ?? summary?.alerts?.total ?? (unackAlerts + ackAlerts + resAlerts);
+
+  const totalVids = dashSummary?.total_videos ?? summary?.videos?.total ?? 0;
+  const procVids = dashSummary?.processed_videos ?? summary?.videos?.processed ?? 0;
+  const procingVids = dashSummary?.processing_videos ?? summary?.videos?.processing ?? 0;
+
+  const totalDetections = totalDet || detectionStats.reduce((acc, d) => acc + Number(d.total || 0), 0) || 1;
+  const totalAlerts = totalAlts || alertStats.reduce((acc, a) => acc + Number(a.total || 0), 0) || 1;
+
+  // Chart data formatting for Circular/Donut graphs
+  const detectionChartData = detectionStats.map((item) => {
+    const isIntrusion = item.detection_type?.toLowerCase() === "intrusion";
+    const isPerson = item.detection_type?.toLowerCase() === "person";
+    const color = isIntrusion ? "#f43f5e" : isPerson ? "#f59e0b" : "#2dd4bf";
+    return {
+      label: item.detection_type || "Entity",
+      value: item.total || 0,
+      color,
+    };
+  });
+
+  const alertChartData = alertStats.map((item) => {
+    const isCritical = item.severity?.toLowerCase() === "critical";
+    const isHigh = item.severity?.toLowerCase() === "high";
+    const isMedium = item.severity?.toLowerCase() === "medium";
+    const color = isCritical ? "#e11d48" : isHigh ? "#f97316" : isMedium ? "#eab308" : "#38bdf8";
+    return {
+      label: item.severity || "Alert",
+      value: item.total || 0,
+      color,
+    };
+  });
 
   return (
     <ProtectedRoute>
@@ -92,7 +148,7 @@ export default function AnalyticsPage() {
                   Perimeter Intelligence & Threat Analytics
                 </h1>
                 <p className="mt-1 text-xs sm:text-sm text-slate-400">
-                  Quantitative threat intelligence, classification volumes, and sector heat distributions.
+                  Quantitative threat intelligence, classification volumes, and sector distributions.
                 </p>
               </div>
 
@@ -106,46 +162,64 @@ export default function AnalyticsPage() {
               </button>
             </div>
 
-            {/* Top KPI row */}
-            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {/* Top KPI row - values use the dashboard summary as the single source of truth */}
+            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               <StatsCard
-                title="Camera Network"
-                value={`${summary?.cameras?.online || 0} / ${summary?.cameras?.total || 0}`}
-                subtitle="Online vs Total Registered"
+                title="Cameras"
+                value={totalCams}
+                subtitle={`${onlineCams} Online • ${offlineCams} Standby`}
                 icon={Camera}
                 color="teal"
-                trend="99.4% Operational"
+                trend={`${totalCams > 0 ? Math.round((onlineCams / totalCams) * 100) : 100}% Operational`}
               />
 
               <StatsCard
-                title="Total Detections"
-                value={summary?.detections?.total ?? totalDetections}
-                subtitle="Indexed in database"
+                title="Detections"
+                value={totalDet}
+                subtitle={`${personDet} Person • ${vehicleDet} Vehicle • ${intrusionDet} Intrusion`}
                 icon={Activity}
                 color="cyan"
-                trend="YOLO Deep Engine"
+                trend="YOLOv11 Engine"
               />
 
               <StatsCard
-                title="Incident Alerts"
-                value={summary?.alerts?.total ?? totalAlerts}
-                subtitle={`${summary?.alerts?.unacknowledged || 0} unacknowledged`}
+                title="Incidents"
+                value={intrusionDet}
+                subtitle="Intrusion detections requiring review"
+                icon={ShieldCheck}
+                color="amber"
+                trend={intrusionDet > 0 ? "Review Required" : "No Intrusions"}
+              />
+
+              <StatsCard
+                title="Alerts"
+                value={totalAlts}
+                subtitle={`${unackAlerts} Open • ${resAlerts} Resolved`}
                 icon={ShieldAlert}
                 color="rose"
-                trend={`${summary?.alerts?.resolved || 0} Resolved`}
+                trend={critAlerts > 0 ? `${critAlerts} CRITICAL` : "Perimeter Clear"}
               />
 
               <StatsCard
-                title="Surveillance Archive"
-                value={summary?.videos?.total || 0}
-                subtitle="Footage files analyzed"
+                title="Surveillance"
+                value={onlineCams}
+                subtitle={`${onlineCams} Online • ${offlineCams} Standby`}
+                icon={Radio}
+                color="emerald"
+                trend="Live Monitoring"
+              />
+
+              <StatsCard
+                title="Archive"
+                value={totalVids}
+                subtitle={`${procVids} Analyzed • ${procingVids} In Pipeline`}
                 icon={TrendingUp}
                 color="emerald"
-                trend="Indexed"
+                trend="Forensic Vault"
               />
             </section>
 
-            {/* 2 Visual Distribution Charts / Breakdown Panes */}
+            {/* 2 Visual Distribution Charts / Breakdown Panes with Show Graph Toggles */}
             <div className="grid gap-6 lg:grid-cols-2">
               {/* Detection Classification Breakdown */}
               <div className="glass-panel rounded-3xl p-6 border border-slate-800 space-y-4">
@@ -154,54 +228,85 @@ export default function AnalyticsPage() {
                     <h2 className="text-base font-bold text-white">Detection Classification Volumes</h2>
                     <p className="text-xs text-slate-400">Distribution by recognized entity type</p>
                   </div>
-                  <span className="rounded-lg bg-teal-500/10 px-2 py-1 text-[11px] font-bold text-teal-300 border border-teal-500/20">
-                    YOLOv11
-                  </span>
+                  
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setShowDetectionGraph(!showDetectionGraph)}
+                      className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-bold transition shadow-sm ${
+                        showDetectionGraph
+                          ? "border-teal-400/60 bg-teal-500/25 text-teal-200"
+                          : "border-slate-800 bg-slate-900 text-slate-300 hover:border-teal-500/40 hover:text-white"
+                      }`}
+                    >
+                      <PieChart className="h-3.5 w-3.5 text-teal-400" />
+                      <span>{showDetectionGraph ? "Hide Graph" : "Show Graph"}</span>
+                    </button>
+                    
+                    <span className="rounded-lg bg-teal-500/10 px-2 py-1 text-[11px] font-bold text-teal-300 border border-teal-500/20">
+                      YOLOv11
+                    </span>
+                  </div>
                 </div>
 
-                <div className="space-y-4 pt-2">
-                  {detectionStats.length > 0 ? (
-                    detectionStats.map((item) => {
-                      const percent = Math.round(((item.total || 0) / totalDetections) * 100);
-                      const isIntrusion = item.detection_type?.toLowerCase() === "intrusion";
-                      const isPerson = item.detection_type?.toLowerCase() === "person";
+                <div className={`grid gap-5 pt-2 ${showDetectionGraph ? "md:grid-cols-2 items-center" : "grid-cols-1"}`}>
+                  <div className="space-y-4">
+                    {detectionStats.length > 0 ? (
+                      detectionStats.map((item) => {
+                        const percent = Math.round(((item.total || 0) / totalDetections) * 100);
+                        const isIntrusion = item.detection_type?.toLowerCase() === "intrusion";
+                        const isPerson = item.detection_type?.toLowerCase() === "person";
 
-                      return (
-                        <div key={item.detection_type} className="space-y-1.5">
-                          <div className="flex items-center justify-between text-xs font-semibold">
-                            <span className="capitalize text-slate-300 flex items-center gap-2">
-                              {isIntrusion ? (
-                                <ShieldAlert className="h-4 w-4 text-rose-400" />
-                              ) : isPerson ? (
-                                <User className="h-4 w-4 text-amber-400" />
-                              ) : (
-                                <Car className="h-4 w-4 text-cyan-400" />
-                              )}
-                              <span>{item.detection_type}</span>
-                            </span>
-                            <span className="font-mono text-slate-200">
-                              {item.total} logs ({percent}%)
-                            </span>
-                          </div>
+                        return (
+                          <div key={item.detection_type} className="space-y-1.5">
+                            <div className="flex items-center justify-between text-xs font-semibold">
+                              <span className="capitalize text-slate-300 flex items-center gap-2">
+                                {isIntrusion ? (
+                                  <ShieldAlert className="h-4 w-4 text-rose-400" />
+                                ) : isPerson ? (
+                                  <User className="h-4 w-4 text-amber-400" />
+                                ) : (
+                                  <Car className="h-4 w-4 text-cyan-400" />
+                                )}
+                                <span>{item.detection_type}</span>
+                              </span>
+                              {/* Display ONLY percentage as requested */}
+                              <span className="font-mono text-teal-400 font-bold">
+                                {percent}%
+                              </span>
+                            </div>
 
-                          <div className="h-2.5 w-full rounded-full bg-slate-900 overflow-hidden border border-slate-800">
-                            <div
-                              style={{ width: `${Math.max(percent, 4)}%` }}
-                              className={`h-full rounded-full transition-all duration-500 ${
-                                isIntrusion
-                                  ? "bg-gradient-to-r from-rose-500 to-red-400"
-                                  : isPerson
-                                  ? "bg-gradient-to-r from-amber-500 to-yellow-400"
-                                  : "bg-gradient-to-r from-teal-400 to-cyan-500"
-                              }`}
-                            />
+                            <div className="h-2.5 w-full rounded-full bg-slate-900 overflow-hidden border border-slate-800">
+                              <div
+                                style={{ width: `${Math.max(percent, 4)}%` }}
+                                className={`h-full rounded-full transition-all duration-500 ${
+                                  isIntrusion
+                                    ? "bg-gradient-to-r from-rose-500 to-red-400"
+                                    : isPerson
+                                    ? "bg-gradient-to-r from-amber-500 to-yellow-400"
+                                    : "bg-gradient-to-r from-teal-400 to-cyan-500"
+                                }`}
+                              />
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <div className="py-8 text-center text-xs text-slate-500">
-                      No classification data available yet.
+                        );
+                      })
+                    ) : (
+                      <div className="py-8 text-center text-xs text-slate-500">
+                        No classification data available yet.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Circular Pie/Donut Graph appeared on click */}
+                  {showDetectionGraph && (
+                    <div className="flex justify-center">
+                      <CircularChart
+                        data={detectionChartData}
+                        title="Entity Share Graph"
+                        size={190}
+                        strokeWidth={22}
+                        centerLabel="Entities"
+                      />
                     </div>
                   )}
                 </div>
@@ -211,59 +316,90 @@ export default function AnalyticsPage() {
               <div className="glass-panel rounded-3xl p-6 border border-slate-800 space-y-4">
                 <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                   <div>
-                    <h2 className="text-base font-bold text-white">Alert Severity Distribution</h2>
+                    <h2 className="text-base font-bold text-white">Alert Security Distribution</h2>
                     <p className="text-xs text-slate-400">Incident breakdown by threat level</p>
                   </div>
-                  <span className="rounded-lg bg-rose-500/10 px-2 py-1 text-[11px] font-bold text-rose-300 border border-rose-500/20">
-                    Threat Triage
-                  </span>
+                  
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setShowAlertGraph(!showAlertGraph)}
+                      className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-bold transition shadow-sm ${
+                        showAlertGraph
+                          ? "border-rose-400/60 bg-rose-500/25 text-rose-200"
+                          : "border-slate-800 bg-slate-900 text-slate-300 hover:border-rose-500/40 hover:text-white"
+                      }`}
+                    >
+                      <PieChart className="h-3.5 w-3.5 text-rose-400" />
+                      <span>{showAlertGraph ? "Hide Graph" : "Show Graph"}</span>
+                    </button>
+
+                    <span className="rounded-lg bg-rose-500/10 px-2 py-1 text-[11px] font-bold text-rose-300 border border-rose-500/20">
+                      Threat Triage
+                    </span>
+                  </div>
                 </div>
 
-                <div className="space-y-4 pt-2">
-                  {alertStats.length > 0 ? (
-                    alertStats.map((item) => {
-                      const percent = Math.round(((item.total || 0) / totalAlerts) * 100);
-                      const isCritical = item.severity?.toLowerCase() === "critical";
-                      const isHigh = item.severity?.toLowerCase() === "high";
+                <div className={`grid gap-5 pt-2 ${showAlertGraph ? "md:grid-cols-2 items-center" : "grid-cols-1"}`}>
+                  <div className="space-y-4">
+                    {alertStats.length > 0 ? (
+                      alertStats.map((item) => {
+                        const percent = Math.round(((item.total || 0) / totalAlerts) * 100);
+                        const isCritical = item.severity?.toLowerCase() === "critical";
+                        const isHigh = item.severity?.toLowerCase() === "high";
 
-                      return (
-                        <div key={item.severity} className="space-y-1.5">
-                          <div className="flex items-center justify-between text-xs font-semibold">
-                            <span className="capitalize text-slate-300 flex items-center gap-2">
-                              <AlertTriangle
-                                className={`h-4 w-4 ${
+                        return (
+                          <div key={item.severity} className="space-y-1.5">
+                            <div className="flex items-center justify-between text-xs font-semibold">
+                              <span className="capitalize text-slate-300 flex items-center gap-2">
+                                <AlertTriangle
+                                  className={`h-4 w-4 ${
+                                    isCritical
+                                      ? "text-rose-400"
+                                      : isHigh
+                                      ? "text-orange-400"
+                                      : "text-amber-400"
+                                  }`}
+                                />
+                                <span>{item.severity}</span>
+                              </span>
+                              {/* Display ONLY percentage as requested */}
+                              <span className="font-mono text-rose-400 font-bold">
+                                {percent}%
+                              </span>
+                            </div>
+
+                            <div className="h-2.5 w-full rounded-full bg-slate-900 overflow-hidden border border-slate-800">
+                              <div
+                                style={{ width: `${Math.max(percent, 4)}%` }}
+                                className={`h-full rounded-full transition-all duration-500 ${
                                   isCritical
-                                    ? "text-rose-400"
+                                    ? "bg-gradient-to-r from-rose-600 to-rose-400"
                                     : isHigh
-                                    ? "text-orange-400"
-                                    : "text-amber-400"
+                                    ? "bg-gradient-to-r from-orange-500 to-amber-400"
+                                    : "bg-gradient-to-r from-amber-400 to-yellow-300"
                                 }`}
                               />
-                              <span>{item.severity}</span>
-                            </span>
-                            <span className="font-mono text-slate-200">
-                              {item.total} incidents ({percent}%)
-                            </span>
+                            </div>
                           </div>
+                        );
+                      })
+                    ) : (
+                      <div className="py-8 text-center text-xs text-slate-500">
+                        No alert severity data available yet.
+                      </div>
+                    )}
+                  </div>
 
-                          <div className="h-2.5 w-full rounded-full bg-slate-900 overflow-hidden border border-slate-800">
-                            <div
-                              style={{ width: `${Math.max(percent, 4)}%` }}
-                              className={`h-full rounded-full transition-all duration-500 ${
-                                isCritical
-                                  ? "bg-gradient-to-r from-rose-600 to-rose-400"
-                                  : isHigh
-                                  ? "bg-gradient-to-r from-orange-500 to-amber-400"
-                                  : "bg-gradient-to-r from-amber-400 to-yellow-300"
-                              }`}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <div className="py-8 text-center text-xs text-slate-500">
-                      No alert severity data available yet.
+                  {/* Circular Pie/Donut Graph appeared on click */}
+                  {showAlertGraph && (
+                    <div className="flex justify-center">
+                      <CircularChart
+                        data={alertChartData}
+                        title="Threat Level Graph"
+                        size={190}
+                        strokeWidth={22}
+                        centerLabel="Alerts"
+                      />
                     </div>
                   )}
                 </div>

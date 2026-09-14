@@ -15,8 +15,13 @@ class DashboardSummary(BaseModel):
     person_detections: int
     vehicle_detections: int
     intrusion_detections: int
+    other_detections: int = 0
 
     total_alerts: int
     unacknowledged_alerts: int
-    high_alerts: int
-    critical_alerts: int
+    acknowledged_alerts: int = 0
+    resolved_alerts: int = 0
+    critical_alerts: int = 0
+    high_alerts: int = 0
+    medium_alerts: int = 0
+    low_alerts: int = 0

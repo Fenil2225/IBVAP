@@ -53,19 +53,32 @@ def get_dashboard_summary(
 
         cursor.execute(
             """
-            SELECT COUNT(*) AS total_videos
+            SELECT
+                COUNT(*) AS total_videos,
+                COALESCE(SUM(CASE WHEN status = 'processed' THEN 1 ELSE 0 END), 0) AS processed,
+                COALESCE(SUM(CASE WHEN status = 'processing' THEN 1 ELSE 0 END), 0) AS processing,
+                COALESCE(SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END), 0) AS failed
             FROM videos
             """
         )
-        total_videos = cursor.fetchone()["total_videos"]
+        video_counts = cursor.fetchone()
 
         cursor.execute(
             """
-            SELECT COUNT(*) AS total_detections
+            SELECT
+                COUNT(*) AS total_detections,
+                COALESCE(SUM(CASE WHEN LOWER(detection_type) = 'person' THEN 1 ELSE 0 END), 0) AS person,
+                COALESCE(SUM(CASE WHEN LOWER(detection_type) = 'vehicle' THEN 1 ELSE 0 END), 0) AS vehicle,
+                COALESCE(SUM(CASE WHEN LOWER(detection_type) = 'intrusion' THEN 1 ELSE 0 END), 0) AS intrusion
             FROM detections
             """
         )
-        total_detections = cursor.fetchone()["total_detections"]
+        det_counts = cursor.fetchone()
+        tot_det = int(det_counts["total_detections"])
+        p_det = int(det_counts["person"])
+        v_det = int(det_counts["vehicle"])
+        i_det = int(det_counts["intrusion"])
+        o_det = max(0, tot_det - (p_det + v_det + i_det))
 
         cursor.execute(
             """
@@ -86,6 +99,15 @@ def get_dashboard_summary(
 
         cursor.execute(
             """
+            SELECT COUNT(*) AS acknowledged_alerts
+            FROM alerts
+            WHERE status = 'acknowledged'
+            """
+        )
+        acknowledged_alerts = cursor.fetchone()["acknowledged_alerts"]
+
+        cursor.execute(
+            """
             SELECT COUNT(*) AS resolved_alerts
             FROM alerts
             WHERE status = 'resolved'
@@ -93,24 +115,48 @@ def get_dashboard_summary(
         )
         resolved_alerts = cursor.fetchone()["resolved_alerts"]
 
+        cursor.execute(
+            """
+            SELECT
+                COALESCE(SUM(CASE WHEN LOWER(severity) = 'critical' THEN 1 ELSE 0 END), 0) AS critical,
+                COALESCE(SUM(CASE WHEN LOWER(severity) = 'high' THEN 1 ELSE 0 END), 0) AS high,
+                COALESCE(SUM(CASE WHEN LOWER(severity) = 'medium' THEN 1 ELSE 0 END), 0) AS medium,
+                COALESCE(SUM(CASE WHEN LOWER(severity) = 'low' THEN 1 ELSE 0 END), 0) AS low
+            FROM alerts
+            """
+        )
+        sev_counts = cursor.fetchone()
+
         return {
             "success": True,
             "data": {
                 "cameras": {
                     "total": total_cameras,
                     "online": online_cameras,
-                    "offline": offline_cameras
+                    "offline": max(0, total_cameras - online_cameras)
                 },
                 "videos": {
-                    "total": total_videos
+                    "total": int(video_counts["total_videos"]),
+                    "processed": int(video_counts["processed"]),
+                    "processing": int(video_counts["processing"]),
+                    "failed": int(video_counts["failed"]),
                 },
                 "detections": {
-                    "total": total_detections
+                    "total": tot_det,
+                    "person": p_det,
+                    "vehicle": v_det,
+                    "intrusion": i_det,
+                    "other": o_det,
                 },
                 "alerts": {
                     "total": total_alerts,
                     "unacknowledged": unacknowledged_alerts,
-                    "resolved": resolved_alerts
+                    "acknowledged": acknowledged_alerts,
+                    "resolved": resolved_alerts,
+                    "critical": int(sev_counts["critical"]),
+                    "high": int(sev_counts["high"]),
+                    "medium": int(sev_counts["medium"]),
+                    "low": int(sev_counts["low"]),
                 }
             }
         }

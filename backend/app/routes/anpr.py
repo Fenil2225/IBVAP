@@ -15,6 +15,7 @@ router = APIRouter(
 )
 
 
+@router.get("", response_model=list[ANPRDetectionResponse])
 @router.get("/", response_model=list[ANPRDetectionResponse])
 def get_anpr_detections(
     video_id: int | None = Query(default=None),

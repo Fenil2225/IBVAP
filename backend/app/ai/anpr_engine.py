@@ -114,12 +114,17 @@ class ANPREngine:
         except (pytesseract.TesseractNotFoundError, RuntimeError, ValueError):
             pass
 
-        try:
-            return self._read_with_easyocr(plate_image)
-        except (ImportError, RuntimeError, OSError):
-            return None
+        if best_plate and len(best_plate) >= 4:
+            return {"plate_number": best_plate, "ocr_confidence": max(0.5, best_score)}
 
-        return {"plate_number": best_plate, "ocr_confidence": best_score} if best_plate else None
+        try:
+            easy_res = self._read_with_easyocr(plate_image)
+            if easy_res:
+                return easy_res
+        except (ImportError, RuntimeError, OSError, Exception):
+            pass
+
+        return {"plate_number": best_plate, "ocr_confidence": best_score} if (best_plate and len(best_plate) >= 4) else None
 
     def process_frame(self, frame):
         plate_detections = (
