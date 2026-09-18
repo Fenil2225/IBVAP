@@ -64,33 +64,39 @@ class ANPREngine:
             return None
 
         gray = cv2.cvtColor(plate_image, cv2.COLOR_BGR2GRAY)
-        gray = cv2.resize(gray, None, fx=3, fy=3, interpolation=cv2.INTER_CUBIC)
+        gray = cv2.resize(gray, None, fx=4, fy=4, interpolation=cv2.INTER_CUBIC)
         gray = cv2.bilateralFilter(gray, 5, 25, 25)
-        variants = [cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]]
+        normalized = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
+        _, otsu = cv2.threshold(normalized, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        variants = [normalized, otsu, cv2.bitwise_not(otsu)]
 
         best_plate = None
         best_score = 0.0
 
         def read_variant(variant):
-            psm = 11 if fallback else 7
-            data = pytesseract.image_to_data(
-                variant,
-                config=f"--psm {psm} -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
-                output_type=pytesseract.Output.DICT,
-            )
-            text = "".join(data["text"])
-            plate = self.clean_plate(text)
-            if len(plate) < 4:
-                return None, 0.0
-            scores = []
-            for value in data["conf"]:
-                try:
-                    parsed_score = float(value)
-                except (TypeError, ValueError):
+            best = (None, 0.0)
+            for psm in (7, 8, 13) if not fallback else (7, 11, 13):
+                data = pytesseract.image_to_data(
+                    variant,
+                    config=f"--psm {psm} -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+                    output_type=pytesseract.Output.DICT,
+                )
+                text = "".join(data["text"])
+                plate = self.clean_plate(text)
+                if len(plate) < 4:
                     continue
-                if parsed_score >= 0:
-                    scores.append(parsed_score)
-            return plate, (sum(scores) / len(scores) / 100) if scores else 0.4
+                scores = []
+                for value in data["conf"]:
+                    try:
+                        parsed_score = float(value)
+                    except (TypeError, ValueError):
+                        continue
+                    if parsed_score >= 0:
+                        scores.append(parsed_score)
+                score = (sum(scores) / len(scores) / 100) if scores else 0.4
+                if score > best[1]:
+                    best = (plate, score)
+            return best
 
         try:
             for variant in variants:
@@ -127,13 +133,11 @@ class ANPREngine:
         return {"plate_number": best_plate, "ocr_confidence": best_score} if (best_plate and len(best_plate) >= 4) else None
 
     def process_frame(self, frame):
-        plate_detections = (
-            self.plate_detector.detect(frame)
-        )
+        plate_detections = self.plate_detector.detect(frame)
+        vehicle_detections = self.vehicle_detector.detect(frame)
 
-        if not plate_detections:
-            vehicle_detections = self.vehicle_detector.detect(frame)
-            plate_detections = []
+        def vehicle_plate_candidates():
+            candidates = []
             for vehicle in vehicle_detections:
                 vx1, vy1, vx2, vy2 = vehicle["bbox"]
                 vehicle_width = vx2 - vx1
@@ -142,7 +146,7 @@ class ANPREngine:
                     continue
                 for x_start, x_end in ((0.2, 0.82), (0.32, 0.94), (0.42, 1.0)):
                     for y_start, y_end in ((0.62, 0.82), (0.72, 0.94)):
-                        plate_detections.append({
+                        candidates.append({
                             "bbox": [
                                 int(vx1 + vehicle_width * x_start),
                                 int(vy1 + vehicle_height * y_start),
@@ -152,76 +156,62 @@ class ANPREngine:
                             "confidence": 0.25,
                             "fallback": True,
                         })
-        else:
-            vehicle_detections = self.vehicle_detector.detect(frame)
+            return candidates
+
+        fallback_detections = vehicle_plate_candidates()
+        if not plate_detections:
+            plate_detections = fallback_detections
 
         if not plate_detections:
             return []
 
-        results = []
+        def read_detections(candidates):
+            detected = []
+            for plate_detection in candidates:
 
-        for plate_detection in plate_detections:
+                x1, y1, x2, y2 = plate_detection["bbox"]
 
-            x1, y1, x2, y2 = (
-                plate_detection["bbox"]
-            )
+                height, width = frame.shape[:2]
 
-            height, width = frame.shape[:2]
+                x1 = max(0, x1)
+                y1 = max(0, y1)
+                x2 = min(width, x2)
+                y2 = min(height, y2)
 
-            x1 = max(0, x1)
-            y1 = max(0, y1)
-            x2 = min(width, x2)
-            y2 = min(height, y2)
+                plate_crop = frame[y1:y2, x1:x2]
 
-            plate_crop = frame[
-                y1:y2,
-                x1:x2
-            ]
-
-            ocr_result = self.read_plate(
-                plate_crop,
-                fallback=plate_detection.get("fallback", False),
-            )
-
-            if not ocr_result:
-                continue
-
-            vehicle_type = "vehicle"
-
-            # Find vehicle containing the plate
-            for vehicle in vehicle_detections:
-
-                vx1, vy1, vx2, vy2 = (
-                    vehicle["bbox"]
+                ocr_result = self.read_plate(
+                    plate_crop,
+                    fallback=plate_detection.get("fallback", False),
                 )
+
+                if not ocr_result:
+                    continue
+
+                vehicle_type = "vehicle"
 
                 plate_center_x = (x1 + x2) / 2
                 plate_center_y = (y1 + y2) / 2
+                for vehicle in vehicle_detections:
 
-                if (
-                    vx1 <= plate_center_x <= vx2
-                    and
-                    vy1 <= plate_center_y <= vy2
-                ):
-                    vehicle_type = vehicle[
-                        "vehicle_type"
-                    ]
-                    break
+                    vx1, vy1, vx2, vy2 = vehicle["bbox"]
 
-            results.append({
-                "plate_number": ocr_result["plate_number"],
-                "vehicle_type": vehicle_type,
-                "confidence": plate_detection[
-                    "confidence"
-                ],
-                "ocr_confidence": ocr_result["ocr_confidence"],
-                "plate_crop": plate_crop.copy(),
-                "bbox": [
-                    x1,
-                    y1,
-                    x2,
-                    y2
-                ]
-            })
+                    if vx1 <= plate_center_x <= vx2 and vy1 <= plate_center_y <= vy2:
+                        vehicle_type = vehicle["vehicle_type"]
+                        break
+
+                detected.append({
+                    "plate_number": ocr_result["plate_number"],
+                    "vehicle_type": vehicle_type,
+                    "confidence": plate_detection["confidence"],
+                    "ocr_confidence": ocr_result["ocr_confidence"],
+                    "plate_crop": plate_crop.copy(),
+                    "bbox": [x1, y1, x2, y2],
+                })
+            return detected
+
+        results = read_detections(plate_detections)
+        if not results and plate_detections != fallback_detections:
+            results = read_detections(fallback_detections)
 
         return results

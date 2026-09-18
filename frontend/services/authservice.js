@@ -16,27 +16,7 @@ export async function loginUser(email, password) {
   return data;
 }
 
-export async function registerUser(
-  name,
-  email,
-  password,
-  role
-) {
-  const data = await apiRequest("/api/auth/register", {
-    method: "POST",
-
-    body: JSON.stringify({
-      name,
-      email,
-      password,
-      role,
-    }),
-  });
-
-  return data;
-}
-
 export async function getCurrentUser() {
   return await apiRequest("/users/me");
 }
-
+

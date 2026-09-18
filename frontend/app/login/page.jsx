@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { useState, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   Shield,
   Lock,
@@ -14,38 +13,23 @@ import {
   AlertTriangle,
   Cpu,
   KeyRound,
-  CheckCircle2,
 } from "lucide-react";
 import { loginUser } from "../../services/authservice";
 import { isAuthenticated } from "../../lib/auth";
 
 function LoginInner() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const isJustRegistered = searchParams.get("registered") === "true";
-  const registeredEmail = searchParams.get("email");
 
   const [email, setEmail] = useState("admin@ibvap.com");
   const [password, setPassword] = useState("admin123");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
 
   useEffect(() => {
     if (isAuthenticated()) {
       router.push("/dashboard");
     }
   }, [router]);
-
-  useEffect(() => {
-    if (isJustRegistered) {
-      setSuccessMessage("Account created successfully! Please sign in with your credentials.");
-      if (registeredEmail) {
-        setEmail(registeredEmail);
-        setPassword("");
-      }
-    }
-  }, [isJustRegistered, registeredEmail]);
 
   async function handleLogin(e) {
     e.preventDefault();
@@ -65,7 +49,6 @@ function LoginInner() {
   const fillDemo = (demoEmail, demoPass) => {
     setEmail(demoEmail);
     setPassword(demoPass);
-    setSuccessMessage("");
     setError("");
   };
 
@@ -139,14 +122,6 @@ function LoginInner() {
                 Enter authorized credentials to access tactical surveillance.
               </p>
             </div>
-
-            {/* Registration Success Banner */}
-            {successMessage && (
-              <div className="mb-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/15 p-3.5 text-xs text-emerald-300 flex items-start gap-2.5">
-                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
-                <span>{successMessage}</span>
-              </div>
-            )}
 
             {/* Quick Demo Credentials Pill */}
             <div className="mb-6 rounded-2xl border border-teal-500/20 bg-teal-500/5 p-3 text-xs">
@@ -231,12 +206,6 @@ function LoginInner() {
             </form>
           </div>
 
-          <div className="mt-6 text-center text-xs text-slate-400">
-            Need a new command account?{" "}
-            <Link href="/register" className="font-bold text-teal-300 hover:text-teal-200">
-              Register Operator
-            </Link>
-          </div>
         </div>
       </div>
     </main>
@@ -244,9 +213,5 @@ function LoginInner() {
 }
 
 export default function LoginPage() {
-  return (
-    <Suspense fallback={<div className="ibvap-shell min-h-screen p-8 text-slate-400">Loading Portal...</div>}>
-      <LoginInner />
-    </Suspense>
-  );
+  return <LoginInner />;
 }

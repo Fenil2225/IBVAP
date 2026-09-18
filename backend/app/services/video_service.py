@@ -213,15 +213,6 @@ def process_video(video_id: int):
         alert_count = 0
         anpr_detections_count = 0
 
-        # Run unified ANPR engine in the same loop
-        from app.services.anpr_service import get_engine, save_detection as save_anpr_detection, delete_video_detections
-        from collections import Counter
-        from difflib import SequenceMatcher
-
-        delete_video_detections(video_id)
-        anpr_engine = get_engine()
-        anpr_observations = []
-
         while True:
             if time.monotonic() > deadline:
                 raise TimeoutError("Video processing exceeded its time limit")
@@ -273,57 +264,16 @@ def process_video(video_id: int):
                     )
                     alert_count += 1
 
-            # 2. ANPR Plate Detection (run on frames with vehicles or every sampled frame)
-            anpr_results = anpr_engine.process_frame(frame)
-            for det in anpr_results:
-                anpr_observations.append({
-                    "plate_number": det["plate_number"],
-                    "vehicle_type": det.get("vehicle_type", "vehicle"),
-                    "confidence": det.get("confidence", 0.8),
-                    "ocr_confidence": det.get("ocr_confidence", 0.8),
-                    "plate_crop": det.get("plate_crop", frame),
-                })
-
         cap.release()
         cap = None
 
-        # 3. Cluster and deduplicate observed plates
-        clusters = []
-        for obs in anpr_observations:
-            for cluster in clusters:
-                cluster_plate = cluster[0]["plate_number"]
-                if SequenceMatcher(None, obs["plate_number"], cluster_plate).ratio() >= 0.75:
-                    cluster.append(obs)
-                    break
-            else:
-                clusters.append([obs])
-
-        for plate_obs in clusters:
-            voted_plate = Counter(
-                o["plate_number"] for o in plate_obs
-            ).most_common(1)[0][0]
-
-            matching = [
-                o for o in plate_obs
-                if SequenceMatcher(None, o["plate_number"], voted_plate).ratio() >= 0.75
-            ]
-            best_obs = max(
-                matching or plate_obs,
-                key=lambda o: (o["confidence"] * 0.5 + o["ocr_confidence"] * 0.5)
-            )
-            confidence = min(
-                1.0,
-                best_obs["confidence"] * 0.5 + best_obs["ocr_confidence"] * 0.5
-            )
-            save_anpr_detection(
-                camera_id=camera_id,
-                video_id=video_id,
-                plate_number=voted_plate,
-                vehicle_type=best_obs["vehicle_type"],
-                confidence=confidence,
-                frame=best_obs["plate_crop"],
-            )
-            anpr_detections_count += 1
+        anpr_result = process_anpr_video(
+            video_path,
+            video_id=video_id,
+            camera_id=camera_id,
+            timeout_seconds=max(deadline - time.monotonic(), 1),
+        )
+        anpr_detections_count = anpr_result.get("detections", 0)
 
         update_video_status(video_id, "processed")
         return {
@@ -345,4 +295,4 @@ def process_video(video_id: int):
             update_video_status(video_id, "failed")
         except Exception:
             pass
-        raise
+        raise
